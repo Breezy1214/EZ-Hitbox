@@ -1,0 +1,29 @@
+{
+	"name": "hitbox",
+	"globIgnorePaths": [
+		"**/.package-lock.json",
+		"**/start.server.luau",
+		"**/start.client.luau",
+		"**/ReplicatedFirst",
+		"**/wally.toml"
+	],
+	"tree": {
+		"$className": "DataModel",
+		"ReplicatedStorage": {
+			"$className": "ReplicatedStorage",
+			"Packages": {
+				"$className": "Folder",
+				"Hitbox": {
+					"$path": "src"
+				}
+			}
+		},
+
+		"ServerScriptService": {
+			"$className": "ServerScriptService",
+			"Server": {
+				"$path": "Test/Server.server.luau"
+			}
+		}
+	}
+}

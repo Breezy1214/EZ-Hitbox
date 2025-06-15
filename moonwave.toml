@@ -1,0 +1,8 @@
+gitRepoUrl = "https://github.com/Breezy1214/Knit"
+
+[home]
+enabled = true
+includeReadme = false
+
+[docusaurus]
+tagline = "Lightweight game framework for Roblox"
