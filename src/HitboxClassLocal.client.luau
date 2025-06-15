@@ -1,11 +1,8 @@
 --!strict
 
-local require = require
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Packages = ReplicatedStorage:WaitForChild("Packages")
-
-local HitboxClass = require(Packages.Hitbox)
-local Constants = require(Packages.Hitbox.Constants)
+local HitboxModule = script.HitboxClassPointer.Value
+local HitboxClass = require(HitboxModule)
+local Constants = require(HitboxModule.Constants)
 local HitboxClassRemote: RemoteEvent = ReplicatedStorage:WaitForChild(Constants.REMOTE_EVENT_NAME)
 
 local currentHitboxes = {}

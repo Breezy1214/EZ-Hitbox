@@ -36,10 +36,7 @@ end
 assert(aliveFolder ~= nil, "Set the alive characters folder in the HitboxClass settings!")
 assert(ignoreFolder ~= nil, "Set the Ignore folder in the HitboxClass settings!")
 assert(aliveFolder:IsDescendantOf(workspace), "The alive folder must be a descendant of workspace! (HitboxClass)")
-assert(
-	ignoreFolder:IsDescendantOf(workspace),
-	"The Ignore folder must be a descendant of workspace! (HitboxClass)"
-)
+assert(ignoreFolder:IsDescendantOf(workspace), "The Ignore folder must be a descendant of workspace! (HitboxClass)")
 
 -- now we initialize the class
 local Types = require(script.Types)
@@ -70,6 +67,11 @@ local function SetupClientForPlayer(player: Player, localScript: Script)
 	local newScriptClone = localScript:Clone()
 	newScriptClone.Parent = screenGUI
 	newScriptClone.Enabled = true
+
+	local pointer = Instance.new("ObjectValue")
+	pointer.Name = "HitboxClassPointer"
+	pointer.Value = script
+	pointer.Parent = newScriptClone
 
 	-- Use PlayerGui if it exists or wait for it
 	screenGUI.Parent = player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui")
@@ -568,7 +570,11 @@ end
 
 function Hitbox:SetPosition(newPosition: CFrame)
 	if self.Client then
-		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.POSITION_CHANGE, { _Tick = self.TickVal, Position = newPosition })
+		HitboxRemote:FireClient(
+			self.Client,
+			Constants.REMOTE_MODE.POSITION_CHANGE,
+			{ _Tick = self.TickVal, Position = newPosition }
+		)
 	end
 
 	local constant
@@ -615,7 +621,11 @@ end
 
 function Hitbox:ChangeWeldOffset(OffsetCFrame: CFrame)
 	if self.Client then
-		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.WELD_OFFSET, { _Tick = self.TickVal, Offset = OffsetCFrame })
+		HitboxRemote:FireClient(
+			self.Client,
+			Constants.REMOTE_MODE.WELD_OFFSET,
+			{ _Tick = self.TickVal, Offset = OffsetCFrame }
+		)
 	end
 
 	self.PartWeldOffset = OffsetCFrame
