@@ -3,7 +3,7 @@
 A flexible, efficient hitbox system for Roblox games that supports both server and client-side hit detection.
 
 ## Installation
-Can be installed through [Wally](https://wally.run/package/breezy1214/hitbox?version=1.0.2)
+Can be installed through [Wally](https://wally.run/package/breezy1214/hitbox?version=1.0.3)
 
 ## Features
 

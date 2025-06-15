@@ -1,7 +1,7 @@
 [package]
 name = "breezy1214/hitbox"
 description = "A flexible, efficient hitbox system for Roblox games that supports both server and client-side hit detection."
-version = "1.0.2"
+version = "1.0.3"
 license = "MIT"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
