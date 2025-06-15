@@ -66,12 +66,12 @@ local function SetupClientForPlayer(player: Player, localScript: Script)
 
 	local newScriptClone = localScript:Clone()
 	newScriptClone.Parent = screenGUI
-	newScriptClone.Enabled = true
 
 	local pointer = Instance.new("ObjectValue")
 	pointer.Name = "HitboxClassPointer"
 	pointer.Value = script
 	pointer.Parent = newScriptClone
+	newScriptClone.Enabled = true
 
 	-- Use PlayerGui if it exists or wait for it
 	screenGUI.Parent = player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui")
@@ -85,6 +85,12 @@ local function SetupClients()
 
 	local newLocalScript = script.HitboxClassLocal:Clone()
 	newLocalScript.Parent = StarterPlayer:FindFirstChildOfClass("StarterPlayerScripts")
+
+	local pointer = Instance.new("ObjectValue")
+	pointer.Name = "HitboxClassPointer"
+	pointer.Value = script
+	pointer.Parent = newLocalScript
+
 	newLocalScript.Enabled = true
 
 	-- Process existing players
@@ -93,11 +99,6 @@ local function SetupClients()
 			SetupClientForPlayer(player, newLocalScript)
 		end)
 	end
-
-	-- Handle future players
-	Players.PlayerAdded:Connect(function(player)
-		SetupClientForPlayer(player, newLocalScript)
-	end)
 end
 
 if RunService:IsServer() then
