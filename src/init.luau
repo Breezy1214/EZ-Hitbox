@@ -18,13 +18,13 @@ assert(
 
 local aliveFolder = moduleSettings[Constants.ALIVE_FOLDER_SETTING_NAME].Value
 
--- Initial error checking for Projectile Folder
+-- Initial error checking for Ignore Folder
 assert(
-	moduleSettings:FindFirstChild(Constants.PROJECTILE_FOLDER_SETTING_NAME),
-	"No Projectile Folder setting found in HitboxClass settings! Make an object value and name it 'Projectile Folder' and parent it there!"
+	moduleSettings:FindFirstChild(Constants.IGNORE_FOLDER_SETTING_NAME),
+	"No Ignore Folder setting found in HitboxClass settings! Make an object value and name it 'Ignore Folder' and parent it there!"
 )
 
-local projectileFolder = moduleSettings[Constants.PROJECTILE_FOLDER_SETTING_NAME].Value
+local ignoreFolder = moduleSettings[Constants.IGNORE_FOLDER_SETTING_NAME].Value
 
 -- Get velocity constant setting
 local velocityConstant = moduleSettings:FindFirstChild(Constants.VELOCITY_CONSTANT_SETTING_NAME)
@@ -34,11 +34,11 @@ if not velocityConstant then
 end
 
 assert(aliveFolder ~= nil, "Set the alive characters folder in the HitboxClass settings!")
-assert(projectileFolder ~= nil, "Set the projectiles folder in the HitboxClass settings!")
+assert(ignoreFolder ~= nil, "Set the Ignore folder in the HitboxClass settings!")
 assert(aliveFolder:IsDescendantOf(workspace), "The alive folder must be a descendant of workspace! (HitboxClass)")
 assert(
-	projectileFolder:IsDescendantOf(workspace),
-	"The projectile folder must be a descendant of workspace! (HitboxClass)"
+	ignoreFolder:IsDescendantOf(workspace),
+	"The Ignore folder must be a descendant of workspace! (HitboxClass)"
 )
 
 -- now we initialize the class
@@ -53,7 +53,7 @@ overlapParamsHumanoid.FilterDescendantsInstances = { aliveFolder }
 overlapParamsHumanoid.FilterType = Enum.RaycastFilterType.Include
 
 local overlapParamsObject = OverlapParams.new()
-overlapParamsObject.FilterDescendantsInstances = { projectileFolder }
+overlapParamsObject.FilterDescendantsInstances = { ignoreFolder }
 overlapParamsObject.FilterType = Enum.RaycastFilterType.Exclude
 
 local CFrameZero = CFrame.new(Vector3.zero)
@@ -378,7 +378,7 @@ function Hitbox:Start()
 		)
 
 		if self.Part and self.DebugMode then
-			self.Part.Parent = projectileFolder
+			self.Part.Parent = ignoreFolder
 		end
 
 		self.RunServiceConnection = self._janitor:Add(RunService.Heartbeat:Connect(function()
@@ -456,7 +456,7 @@ function Hitbox:Start()
 		end))
 	else
 		if (self.SpatialOption == "InPart") or (self.Part and self.DebugMode == true) then
-			self.Part.Parent = projectileFolder
+			self.Part.Parent = ignoreFolder
 		end
 		self.RunServiceConnection = self._janitor:Add(RunService.Heartbeat:Connect(function()
 			if self.PartWeld then
@@ -639,13 +639,13 @@ function Hitbox:SetDebug(state: boolean)
 			assert(self.Part, "Part wasn't generated after the GeneratePart method?")
 
 			if self.RunServiceConnection then
-				self.Part.Parent = projectileFolder
+				self.Part.Parent = ignoreFolder
 			end
 		else
 			self.Part.Transparency = Constants.DEBUG_PART.VISIBLE_TRANSPARENCY
 
 			if self.SpatialOption ~= Constants.SPATIAL_OPTION.IN_PART and self.RunServiceConnection then
-				self.Part.Parent = projectileFolder
+				self.Part.Parent = ignoreFolder
 			end
 		end
 	else

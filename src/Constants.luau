@@ -8,7 +8,7 @@ Constants.HITBOX_GUI_NAME = "HitboxClassContainer"
 -- Module settings folder
 Constants.SETTINGS_FOLDER_NAME = "HitboxSettings"
 Constants.ALIVE_FOLDER_SETTING_NAME = "Alive Folder"
-Constants.PROJECTILE_FOLDER_SETTING_NAME = "Projectile Folder"
+Constants.IGNORE_FOLDER_SETTING_NAME = "Ignore Folder"
 Constants.VELOCITY_CONSTANT_SETTING_NAME = "Velocity Prediction Constant"
 
 -- Default values

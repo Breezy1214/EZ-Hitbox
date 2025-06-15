@@ -2,6 +2,9 @@
 
 A flexible, efficient hitbox system for Roblox games that supports both server and client-side hit detection.
 
+## Installation
+Can be installed through [Wally](https://wally.run/package/breezy1214/hitbox?version=1.0.0)
+
 ## Features
 
 - Server and client-side hit detection
@@ -19,7 +22,7 @@ A flexible, efficient hitbox system for Roblox games that supports both server a
 1. Place the `HitboxSettings` folder in ReplicatedStorage
 2. Add the following object values to the settings folder:
    - `Alive Folder`: Reference to the folder containing all alive characters
-   - `Projectile Folder`: Reference to the folder where hitbox visualizations will be parented
+   - `Ignore Folder`: Reference to the folder where the hitbox will ignore
    - `Velocity Constant`: (Optional) Numeric value for velocity calculations (default: 6)
 
 ## Usage Examples
