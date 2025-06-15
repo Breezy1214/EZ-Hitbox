@@ -1,6 +1,6 @@
 [package]
-name = "breezy1214/knit"
-description = "Knit is a lightweight game framework"
+name = "breezy1214/Hitbox"
+description = "A flexible, efficient hitbox system for Roblox games that supports both server and client-side hit detection."
 version = "1.0.0"
 license = "MIT"
 registry = "https://github.com/UpliftGames/wally-index"
