@@ -4,26 +4,30 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local Players = game:GetService("Players")
 
-local moduleSettings = ReplicatedStorage:WaitForChild("HitboxSettings", 3)
+local Constants = require(script.Constants)
+
+-- Module setup and configuration
+local moduleSettings = ReplicatedStorage:WaitForChild(Constants.SETTINGS_FOLDER_NAME, 3)
 assert(moduleSettings, "HitboxClass settings not found! Make sure the HitboxSettings Folder is in ReplicatedStorage!")
 
--- Initial error checking
-
+-- Initial error checking for Alive Folder
 assert(
-	moduleSettings:FindFirstChild("Alive Folder"),
+	moduleSettings:FindFirstChild(Constants.ALIVE_FOLDER_SETTING_NAME),
 	"No Alive Folder setting found in HitboxClass settings! Make an object value and name it 'Alive Folder' and parent it there!"
 )
 
-local aliveFolder = moduleSettings["Alive Folder"].Value
+local aliveFolder = moduleSettings[Constants.ALIVE_FOLDER_SETTING_NAME].Value
 
+-- Initial error checking for Projectile Folder
 assert(
-	moduleSettings:FindFirstChild("Projectile Folder"),
+	moduleSettings:FindFirstChild(Constants.PROJECTILE_FOLDER_SETTING_NAME),
 	"No Projectile Folder setting found in HitboxClass settings! Make an object value and name it 'Projectile Folder' and parent it there!"
 )
 
-local projectileFolder = moduleSettings["Projectile Folder"].Value
+local projectileFolder = moduleSettings[Constants.PROJECTILE_FOLDER_SETTING_NAME].Value
 
-local velocityConstant = moduleSettings:FindFirstChild("Velocity Prediction Constant")
+-- Get velocity constant setting
+local velocityConstant = moduleSettings:FindFirstChild(Constants.VELOCITY_CONSTANT_SETTING_NAME)
 
 if not velocityConstant then
 	warn("Velocity Constant Setting has been deleted! 6 will be used as a default. (HitboxClass)")
@@ -60,7 +64,7 @@ local HitboxRemote = nil
 
 local function SetupClientForPlayer(player: Player, localScript: Script)
 	local screenGUI = Instance.new("ScreenGui")
-	screenGUI.Name = "HitboxClassContainer"
+	screenGUI.Name = Constants.HITBOX_GUI_NAME
 	screenGUI.ResetOnSpawn = false
 
 	local newScriptClone = localScript:Clone()
@@ -73,7 +77,7 @@ end
 
 local function SetupClients()
 	local newRemoteEvent = Instance.new("RemoteEvent")
-	newRemoteEvent.Name = "HitboxClassRemote"
+	newRemoteEvent.Name = Constants.REMOTE_EVENT_NAME
 	newRemoteEvent.Parent = ReplicatedStorage
 	HitboxRemote = newRemoteEvent
 
@@ -97,10 +101,10 @@ end
 if RunService:IsServer() then
 	SetupClients()
 else
-	HitboxRemote = ReplicatedStorage:FindFirstChild("HitboxClassRemote")
+	HitboxRemote = ReplicatedStorage:FindFirstChild(Constants.REMOTE_EVENT_NAME)
 	if not HitboxRemote then
 		warn("HitboxClass must be initialized on the server before using it on the client! Waiting for RemoteEvent!")
-		HitboxRemote = ReplicatedStorage:WaitForChild("HitboxClassRemote")
+		HitboxRemote = ReplicatedStorage:WaitForChild(Constants.REMOTE_EVENT_NAME)
 	end
 end
 
@@ -147,11 +151,11 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 	self.HitSomeone = self._janitor:Add(Signal.new())
 	self.HitObject = self._janitor:Add(Signal.new())
 
-	self.DebugMode = HitboxParams.Debug or false
+	self.DebugMode = HitboxParams.Debug or Constants.DEFAULT_DEBUG_MODE
 
-	self.Lifetime = HitboxParams.Debris or 0
+	self.Lifetime = HitboxParams.Debris or Constants.DEFAULT_LIFETIME
 
-	self.LookingFor = HitboxParams.LookingFor or "Humanoid"
+	self.LookingFor = HitboxParams.LookingFor or Constants.LOOKING_FOR.HUMANOID
 
 	if HitboxParams.UseClient then
 		self.Client = HitboxParams.UseClient
@@ -185,11 +189,11 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 
 		local startWaitTime = workspace:GetServerTimeNow()
 
-		HitboxRemote:FireClient(self.Client, "New", newDictionary)
+		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.NEW, newDictionary)
 
 		repeat
 			task.wait()
-		until readyToGo or workspace:GetServerTimeNow() - startWaitTime >= 1.5
+		until readyToGo or workspace:GetServerTimeNow() - startWaitTime >= Constants.CLIENT_RESPONSE_TIMEOUT
 
 		tempWaitEvent:Disconnect()
 
@@ -198,11 +202,11 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 		end
 	else
 		self.Position = HitboxParams.InitialPosition or CFrameZero
-		self.DebounceTime = HitboxParams.DebounceTime or 0
+		self.DebounceTime = HitboxParams.DebounceTime or Constants.DEFAULT_DEBOUNCE_TIME
 		self.VelocityPrediction = HitboxParams.VelocityPrediction
 
 		if self.VelocityPrediction == nil then
-			self.VelocityPrediction = true
+			self.VelocityPrediction = Constants.DEFAULT_VELOCITY_PREDICTION
 		end
 
 		self.DotProductRequirement = HitboxParams.DotProductRequirement
@@ -210,48 +214,48 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 		self.DebugMode = HitboxParams.Debug or false
 
 		if typeof(HitboxParams.SizeOrPart) == "Vector3" then
-			self.SpatialOption = HitboxParams.SpatialOption or "InBox"
+			self.SpatialOption = HitboxParams.SpatialOption or Constants.SPATIAL_OPTION.IN_BOX
 
 			assert(
-				self.SpatialOption ~= "InRadius",
+				self.SpatialOption ~= Constants.SPATIAL_OPTION.IN_RADIUS,
 				"You can't use InRadius as the SpatialOption if a Vector3 is passed! Only InPart and InBox! (HitboxClass)"
 			)
 
-			self.Mode = "Part"
+			self.Mode = Constants.HITBOX_MODE.PART
 			self.Size = HitboxParams.SizeOrPart
 
-			if self.SpatialOption == "InPart" then
+			if self.SpatialOption == Constants.SPATIAL_OPTION.IN_PART then
 				self:_GeneratePart()
 			end
 		elseif type(HitboxParams.SizeOrPart) == "number" then
-			self.SpatialOption = HitboxParams.SpatialOption or "Magnitude"
+			self.SpatialOption = HitboxParams.SpatialOption or Constants.SPATIAL_OPTION.MAGNITUDE
 
-			if self.SpatialOption == "InRadius" then
-				self.Mode = "Part"
+			if self.SpatialOption == Constants.SPATIAL_OPTION.IN_RADIUS then
+				self.Mode = Constants.HITBOX_MODE.PART
 				self.Size = HitboxParams.SizeOrPart
-			elseif self.SpatialOption == "InPart" then
-				self.Mode = "Part"
+			elseif self.SpatialOption == Constants.SPATIAL_OPTION.IN_PART then
+				self.Mode = Constants.HITBOX_MODE.PART
 				self.Size = Vector3.new(HitboxParams.SizeOrPart, HitboxParams.SizeOrPart, HitboxParams.SizeOrPart)
 				self:_GeneratePart()
-			elseif self.SpatialOption == "InBox" then
-				self.Mode = "Part"
+			elseif self.SpatialOption == Constants.SPATIAL_OPTION.IN_BOX then
+				self.Mode = Constants.HITBOX_MODE.PART
 				self.Size = Vector3.new(HitboxParams.SizeOrPart, HitboxParams.SizeOrPart, HitboxParams.SizeOrPart)
 			else
-				self.Mode = "Magnitude"
+				self.Mode = Constants.HITBOX_MODE.MAGNITUDE
 				self.Size = HitboxParams.SizeOrPart
 			end
 		else
-			self.Mode = "Part"
+			self.Mode = Constants.HITBOX_MODE.PART
 			self.Size = HitboxParams.SizeOrPart.Size
 			self.Part = self._janitor:Add(HitboxParams.SizeOrPart:Clone())
 
-			self.SpatialOption = "InPart"
+			self.SpatialOption = Constants.SPATIAL_OPTION.IN_PART
 
 			assert(self.Part, "No part provided?")
 
 			assert(self.Part and self.Part:IsA("Part"), "Part provided wasn't a part! (HitboxClass)")
 
-			self.Part.Color = Color3.new(1, 0, 0)
+			self.Part.Color = Constants.DEBUG_PART.COLOR
 			self.Part.Name = "Hitbox" .. self.TickVal
 		end
 
@@ -267,7 +271,7 @@ end
 
 function Hitbox:ClearTaggedChars()
 	if self.Client then
-		HitboxRemote:FireClient(self.Client, "ClrTag", { _Tick = self.TickVal })
+		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.CLEAR_TAG, { _Tick = self.TickVal })
 	else
 		table.clear(self.TaggedChars)
 	end
@@ -309,7 +313,7 @@ function Hitbox:Start()
 					return
 				end
 
-				if self.LookingFor == "Humanoid" then
+				if self.LookingFor == Constants.LOOKING_FOR.HUMANOID then
 					-- remove all HitTable that isn't a model, isn't a descendant of the alive folder, or doesn't have a humanoid, or is nil entirely
 					for i = #HitTable, 1, -1 do
 						if
@@ -336,7 +340,7 @@ function Hitbox:Start()
 					end
 
 					self.HitSomeone:Fire(HitTable)
-				elseif self.LookingFor == "Object" then
+				elseif self.LookingFor == Constants.LOOKING_FOR.OBJECT then
 					for i = #HitTable, 1, -1 do
 						if
 							not HitTable[i]
@@ -366,8 +370,8 @@ function Hitbox:Start()
 				end
 			end))
 
-		HitboxRemote:FireClient(self.Client, "Start", { _Tick = self.TickVal })
-	elseif self.Mode == "Magnitude" then
+		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.START, { _Tick = self.TickVal })
+	elseif self.Mode == Constants.HITBOX_MODE.MAGNITUDE then
 		assert(
 			typeof(self.Size) == "number",
 			"Magnitude hitbox wasn't given a number! Type given: " .. typeof(self.Size)
@@ -549,7 +553,7 @@ function Hitbox:Stop()
 			self.ClientConnection:Disconnect()
 			self.ClientConnection = nil
 		end
-		HitboxRemote:FireClient(self.Client, "Stop", { _Tick = self.TickVal })
+		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.STOP, { _Tick = self.TickVal })
 	else
 		if self.Part then
 			self.Part:Destroy()
@@ -564,15 +568,15 @@ end
 
 function Hitbox:SetPosition(newPosition: CFrame)
 	if self.Client then
-		HitboxRemote:FireClient(self.Client, "PosCh", { _Tick = self.TickVal, Position = newPosition })
+		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.POSITION_CHANGE, { _Tick = self.TickVal, Position = newPosition })
 	end
 
 	local constant
 
 	if velocityConstant then
-		constant = velocityConstant.Value or 6
+		constant = velocityConstant.Value or Constants.DEFAULT_VELOCITY_CONSTANT
 	else
-		constant = 6
+		constant = Constants.DEFAULT_VELOCITY_CONSTANT
 	end
 
 	if RunService:IsServer() and self.PartWeld and self.VelocityPrediction then
@@ -591,7 +595,7 @@ function Hitbox:WeldTo(PartToWeldTo: BasePart, OffsetCFrame: CFrame?)
 	if self.Client then
 		HitboxRemote:FireClient(
 			self.Client,
-			"Weld",
+			Constants.REMOTE_MODE.WELD,
 			{ _Tick = self.TickVal, WeldTo = PartToWeldTo, Offset = OffsetCFrame }
 		)
 	end
@@ -602,7 +606,7 @@ end
 
 function Hitbox:Unweld()
 	if self.Client then
-		HitboxRemote:FireClient(self.Client, "Unweld", { _Tick = self.TickVal })
+		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.UNWELD, { _Tick = self.TickVal })
 	end
 
 	self.PartWeld = nil
@@ -611,7 +615,7 @@ end
 
 function Hitbox:ChangeWeldOffset(OffsetCFrame: CFrame)
 	if self.Client then
-		HitboxRemote:FireClient(self.Client, "WeldOfs", { _Tick = self.TickVal, Offset = OffsetCFrame })
+		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.WELD_OFFSET, { _Tick = self.TickVal, Offset = OffsetCFrame })
 	end
 
 	self.PartWeldOffset = OffsetCFrame
@@ -625,7 +629,7 @@ function Hitbox:SetDebug(state: boolean)
 	self.DebugMode = state
 
 	if self.Client then
-		HitboxRemote:FireClient(self.Client, "Dbg", { _Tick = self.TickVal, Debug = state })
+		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.DEBUG, { _Tick = self.TickVal, Debug = state })
 		return
 	end
 
@@ -638,19 +642,19 @@ function Hitbox:SetDebug(state: boolean)
 				self.Part.Parent = projectileFolder
 			end
 		else
-			self.Part.Transparency = 0.45
+			self.Part.Transparency = Constants.DEBUG_PART.VISIBLE_TRANSPARENCY
 
-			if self.SpatialOption ~= "InPart" and self.RunServiceConnection then
+			if self.SpatialOption ~= Constants.SPATIAL_OPTION.IN_PART and self.RunServiceConnection then
 				self.Part.Parent = projectileFolder
 			end
 		end
 	else
 		if self.Part then
-			if self.SpatialOption ~= "InPart" then
+			if self.SpatialOption ~= Constants.SPATIAL_OPTION.IN_PART then
 				self.Part.Parent = nil
 			end
 
-			self.Part.Transparency = 1
+			self.Part.Transparency = Constants.DEBUG_PART.INVISIBLE_TRANSPARENCY
 		end
 	end
 end
@@ -815,7 +819,7 @@ function Hitbox:Destroy()
 
 	-- Tell the client to destroy the hitbox on their end
 	if self.Client then
-		HitboxRemote:FireClient(self.Client, "Des", { _Tick = self.TickVal })
+		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.DESTROY, { _Tick = self.TickVal })
 	end
 
 	self.TaggedChars = {}

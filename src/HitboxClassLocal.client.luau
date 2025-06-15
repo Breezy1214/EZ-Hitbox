@@ -4,13 +4,14 @@ local require = require
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local HitboxClassRemote: RemoteEvent = ReplicatedStorage:WaitForChild("HitboxClassRemote")
 local HitboxClass = require(Packages.Hitbox)
+local Constants = require(Packages.Hitbox.Constants)
+local HitboxClassRemote: RemoteEvent = ReplicatedStorage:WaitForChild(Constants.REMOTE_EVENT_NAME)
 
 local currentHitboxes = {}
 
 HitboxClassRemote.OnClientEvent:Connect(function(mode, packet)
-	if mode == "Clr" then
+	if mode == Constants.REMOTE_MODE.CLEAR then
 		for i, Hitbox in pairs(currentHitboxes) do
 			Hitbox:Destroy()
 			currentHitboxes[i] = nil
@@ -18,52 +19,51 @@ HitboxClassRemote.OnClientEvent:Connect(function(mode, packet)
 		return
 	end
 
-	if mode ~= "New" and not currentHitboxes[packet._Tick] then
+	if mode ~= Constants.REMOTE_MODE.NEW and not currentHitboxes[packet._Tick] then
 		warn(
 			"No hitbox found on the client for tick value sent. Don't change the tick value manually, change the ID instead. (HitboxClass)"
 		)
 		return
 	end
-
-	if mode == "New" then
+	if mode == Constants.REMOTE_MODE.NEW then
 		local newHitbox = HitboxClass.new(packet)
 		currentHitboxes[packet._Tick] = newHitbox
 		HitboxClassRemote:FireServer(packet._Tick)
 	end
 
-	if mode == "Start" then
+	if mode == Constants.REMOTE_MODE.START then
 		currentHitboxes[packet._Tick]:Start()
 	end
 
-	if mode == "Stop" then
+	if mode == Constants.REMOTE_MODE.STOP then
 		currentHitboxes[packet._Tick]:Stop()
 	end
 
-	if mode == "ClrTag" then
+	if mode == Constants.REMOTE_MODE.CLEAR_TAG then
 		currentHitboxes[packet._Tick]:ClearTaggedChars()
 	end
 
-	if mode == "Weld" then
+	if mode == Constants.REMOTE_MODE.WELD then
 		currentHitboxes[packet._Tick]:WeldTo(packet.WeldTo, packet.Offset)
 	end
 
-	if mode == "WeldOfs" then
+	if mode == Constants.REMOTE_MODE.WELD_OFFSET then
 		currentHitboxes[packet._Tick]:ChangeWeldOffset(packet.Offset)
 	end
 
-	if mode == "Unweld" then
+	if mode == Constants.REMOTE_MODE.UNWELD then
 		currentHitboxes[packet._Tick]:Unweld()
 	end
 
-	if mode == "PosCh" then
+	if mode == Constants.REMOTE_MODE.POSITION_CHANGE then
 		currentHitboxes[packet._Tick]:SetPosition(packet.Position)
 	end
 
-	if mode == "Dbg" then
+	if mode == Constants.REMOTE_MODE.DEBUG then
 		currentHitboxes[packet._Tick]:SetDebug(packet.Debug)
 	end
 
-	if mode == "Des" then
+	if mode == Constants.REMOTE_MODE.DESTROY then
 		currentHitboxes[packet._Tick]:Destroy()
 		currentHitboxes[packet._Tick] = nil
 	end
