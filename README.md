@@ -1,4 +1,4 @@
-# Hitbox
+# EZ Hitbox
 
 A flexible, efficient hitbox system for Roblox games that supports both server and client-side hit detection.
 
