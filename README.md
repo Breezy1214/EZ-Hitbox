@@ -3,7 +3,7 @@
 A flexible, efficient hitbox system for Roblox games that supports both server and client-side hit detection.
 
 ## Installation
-Can be installed through [Wally](https://wally.run/package/breezy1214/hitbox?version=2.0.0)
+Can be installed through [Wally](https://wally.run/package/breezy1214/hitbox?version=2.0.1)
 
 ## Features
 
@@ -102,7 +102,7 @@ Creates a new hitbox with the specified parameters.
   - `InitialCframe`: (CFrame) Starting cframe
   - `SizeOrPart`: (Vector3|number|Part) Hitbox size or reference part
   - `Debug`: (boolean) Whether to show debug visualization
-  - `Debris`: (number) Lifetime in seconds before auto-destruction
+  - `LifeTime`: (number) Lifetime in seconds before auto-destruction
   - `DebounceTime`: (number) Time before hitting the same target again
   - `LookingFor`: ("Humanoid"|"Object") Detection target type
   - `SpatialOption`: ("InBox"|"InRadius"|"InPart"|"Magnitude") Detection method
