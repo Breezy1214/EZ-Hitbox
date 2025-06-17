@@ -39,7 +39,7 @@ HitboxClassRemote.OnClientEvent:Connect(function(mode, packet)
 	end
 
 	if mode == Constants.REMOTE_MODE.CLEAR_TAG then
-		currentHitboxes[packet._Tick]:ClearTaggedChars()
+		currentHitboxes[packet._Tick]:ClearTaggedCharacters()
 	end
 
 	if mode == Constants.REMOTE_MODE.WELD then
@@ -47,7 +47,7 @@ HitboxClassRemote.OnClientEvent:Connect(function(mode, packet)
 	end
 
 	if mode == Constants.REMOTE_MODE.WELD_OFFSET then
-		currentHitboxes[packet._Tick]:ChangeWeldOffset(packet.Offset)
+		currentHitboxes[packet._Tick]:SetWeldOffset(packet.Offset)
 	end
 
 	if mode == Constants.REMOTE_MODE.UNWELD then
@@ -55,11 +55,11 @@ HitboxClassRemote.OnClientEvent:Connect(function(mode, packet)
 	end
 
 	if mode == Constants.REMOTE_MODE.POSITION_CHANGE then
-		currentHitboxes[packet._Tick]:SetPosition(packet.Position)
+		currentHitboxes[packet._Tick]:SetCFrame(packet.CFrame)
 	end
 
 	if mode == Constants.REMOTE_MODE.DEBUG then
-		currentHitboxes[packet._Tick]:SetDebug(packet.Debug)
+		currentHitboxes[packet._Tick]:EnableDebug(packet.Debug)
 	end
 
 	if mode == Constants.REMOTE_MODE.DESTROY then

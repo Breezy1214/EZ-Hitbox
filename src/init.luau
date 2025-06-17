@@ -151,7 +151,7 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 
 	self.Blacklist = HitboxParams.Blacklist
 
-	self.HitSomeone = self._janitor:Add(Signal.new())
+	self.OnHit = self._janitor:Add(Signal.new())
 	self.HitObject = self._janitor:Add(Signal.new())
 
 	self.DebugMode = HitboxParams.Debug or Constants.DEFAULT_DEBUG_MODE
@@ -204,7 +204,7 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 			return self, false
 		end
 	else
-		self.Position = HitboxParams.InitialPosition or CFrameZero
+		self.CFrame = HitboxParams.InitialCframe or CFrameZero
 		self.DebounceTime = HitboxParams.DebounceTime or Constants.DEFAULT_DEBOUNCE_TIME
 		self.VelocityPrediction = HitboxParams.VelocityPrediction
 
@@ -261,9 +261,8 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 			self.Part.Color = Constants.DEBUG_PART.COLOR
 			self.Part.Name = "Hitbox" .. self.TickVal
 		end
-
 		if self.DebugMode then
-			self:SetDebug(true)
+			self:EnableDebug(true)
 		end
 	end
 
@@ -272,7 +271,7 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 	return self, true
 end
 
-function Hitbox:ClearTaggedChars()
+function Hitbox:ClearTaggedCharacters()
 	if self.Client then
 		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.CLEAR_TAG, { _Tick = self.TickVal })
 	else
@@ -342,7 +341,7 @@ function Hitbox:Start()
 						return
 					end
 
-					self.HitSomeone:Fire(HitTable)
+					self.OnHit:Fire(HitTable)
 				elseif self.LookingFor == Constants.LOOKING_FOR.OBJECT then
 					for i = #HitTable, 1, -1 do
 						if
@@ -386,7 +385,7 @@ function Hitbox:Start()
 
 		self.RunServiceConnection = self._janitor:Add(RunService.Heartbeat:Connect(function()
 			if self.PartWeld then
-				self:SetPosition(self.PartWeld.CFrame * (self.PartWeldOffset or CFrameZero))
+				self:SetCFrame(self.PartWeld.CFrame * (self.PartWeldOffset or CFrameZero))
 			end
 
 			-- go through the alive folder
@@ -397,7 +396,7 @@ function Hitbox:Start()
 					and Character.PrimaryPart ~= nil
 					and Character:FindFirstChildOfClass("Humanoid")
 				then
-					local magnitude = (self.Position.Position - Character.PrimaryPart.Position).Magnitude
+					local magnitude = (self.CFrame.Position - Character.PrimaryPart.Position).Magnitude
 
 					-- if they're greater than the distance of the hitbox, skip them
 					if magnitude > self.Size then
@@ -463,22 +462,22 @@ function Hitbox:Start()
 		end
 		self.RunServiceConnection = self._janitor:Add(RunService.Heartbeat:Connect(function()
 			if self.PartWeld then
-				self:SetPosition(self.PartWeld.CFrame * (self.PartWeldOffset or CFrameZero))
+				self:SetCFrame(self.PartWeld.CFrame * (self.PartWeldOffset or CFrameZero))
 			end
 
 			local results
 
 			if self.SpatialOption == "InBox" then
 				if self.LookingFor == "Humanoid" then
-					results = workspace:GetPartBoundsInBox(self.Position, self.Size, overlapParamsHumanoid)
+					results = workspace:GetPartBoundsInBox(self.CFrame, self.Size, overlapParamsHumanoid)
 				else
-					results = workspace:GetPartBoundsInBox(self.Position, self.Size, overlapParamsObject)
+					results = workspace:GetPartBoundsInBox(self.CFrame, self.Size, overlapParamsObject)
 				end
 			elseif self.SpatialOption == "InRadius" then
 				if self.LookingFor == "Humanoid" then
-					results = workspace:GetPartBoundsInRadius(self.Position.Position, self.Size, overlapParamsHumanoid)
+					results = workspace:GetPartBoundsInRadius(self.CFrame.Position, self.Size, overlapParamsHumanoid)
 				else
-					results = workspace:GetPartBoundsInRadius(self.Position.Position, self.Size, overlapParamsObject)
+					results = workspace:GetPartBoundsInRadius(self.CFrame.Position, self.Size, overlapParamsObject)
 				end
 			else
 				if self.LookingFor == "Humanoid" then
@@ -569,12 +568,12 @@ function Hitbox:Stop()
 	end
 end
 
-function Hitbox:SetPosition(newPosition: CFrame)
+function Hitbox:SetCFrame(newCframe: CFrame)
 	if self.Client then
 		HitboxRemote:FireClient(
 			self.Client,
 			Constants.REMOTE_MODE.POSITION_CHANGE,
-			{ _Tick = self.TickVal, Position = newPosition }
+			{ _Tick = self.TickVal, CFrame = newCframe }
 		)
 	end
 
@@ -587,14 +586,21 @@ function Hitbox:SetPosition(newPosition: CFrame)
 	end
 
 	if RunService:IsServer() and self.PartWeld and self.VelocityPrediction then
-		local velocityVector = newPosition:VectorToObjectSpace(self.PartWeld.AssemblyLinearVelocity) / constant
-		newPosition = newPosition * CFrame.new(velocityVector)
+		local velocityVector = newCframe:VectorToObjectSpace(self.PartWeld.AssemblyLinearVelocity) / constant
+		newCframe = newCframe * CFrame.new(velocityVector)
 	end
 
-	self.Position = newPosition
+	self.CFrame = newCframe
 
 	if self.Part then
-		self.Part.CFrame = newPosition
+		self.Part.CFrame = newCframe
+	elseif self.DebugMode and not self.Client then
+		-- Generate debug part if it doesn't exist but debug mode is enabled
+		self:_GeneratePart()
+		if self.Part then
+			self.Part.CFrame = newCframe
+			self.Part.Parent = ignoreFolder
+		end
 	end
 end
 
@@ -620,7 +626,7 @@ function Hitbox:Unweld()
 	self.PartWeldOffset = nil
 end
 
-function Hitbox:ChangeWeldOffset(OffsetCFrame: CFrame)
+function Hitbox:SetWeldOffset(OffsetCFrame: CFrame)
 	if self.Client then
 		HitboxRemote:FireClient(
 			self.Client,
@@ -632,11 +638,11 @@ function Hitbox:ChangeWeldOffset(OffsetCFrame: CFrame)
 	self.PartWeldOffset = OffsetCFrame
 end
 
-function Hitbox:SetVelocityPrediction(state: boolean)
+function Hitbox:EnableVelocityPrediction(state: boolean)
 	self.VelocityPrediction = state
 end
 
-function Hitbox:SetDebug(state: boolean)
+function Hitbox:EnableDebug(state: boolean)
 	self.DebugMode = state
 
 	if self.Client then
@@ -648,14 +654,13 @@ function Hitbox:SetDebug(state: boolean)
 		if not self.Part then
 			self:_GeneratePart()
 			assert(self.Part, "Part wasn't generated after the GeneratePart method?")
+		end
 
-			if self.RunServiceConnection then
-				self.Part.Parent = ignoreFolder
-			end
-		else
+		if self.Part then
 			self.Part.Transparency = Constants.DEBUG_PART.VISIBLE_TRANSPARENCY
 
-			if self.SpatialOption ~= Constants.SPATIAL_OPTION.IN_PART and self.RunServiceConnection then
+			-- Parent the part to ignoreFolder if it's not already parented
+			if not self.Part.Parent then
 				self.Part.Parent = ignoreFolder
 			end
 		end
@@ -670,7 +675,7 @@ function Hitbox:SetDebug(state: boolean)
 	end
 end
 
-function Hitbox.ClearHitboxesWithID(ID: number | string)
+function Hitbox.ClearHitboxesByID(ID: number | string)
 	if RunService:IsClient() then
 		return
 	end
@@ -687,7 +692,7 @@ function Hitbox.ClearHitboxesWithID(ID: number | string)
 	end
 end
 
-function Hitbox.ClearClientHitboxes(client: Player)
+function Hitbox.ClearHitboxesForClient(client: Player)
 	if RunService:IsClient() then
 		return
 	end
@@ -767,7 +772,7 @@ function Hitbox:_SiftThroughSendingCharsAndFire()
 			HitboxRemote:FireServer(self.TickVal, shallowObjectTable)
 		end
 
-		self.HitSomeone:Fire(shallowObjectTable)
+		self.OnHit:Fire(shallowObjectTable)
 	end
 
 	if self.SendingChars then
@@ -800,7 +805,7 @@ function Hitbox:_GeneratePart()
 		self.Part.CanCollide = false
 
 		self.Part.Size = self.Size
-		self.Part.CFrame = self.Position
+		self.Part.CFrame = self.CFrame
 
 		self.Part.Name = "Hitbox" .. self.TickVal
 	elseif type(self.Size) == "number" then
@@ -816,7 +821,7 @@ function Hitbox:_GeneratePart()
 		self.Part.Size = Vector3.new(self.Size * 2, self.Size * 2, self.Size * 2)
 		self.Part.Transparency = 0.45
 		self.Part.Color = Color3.new(1, 0, 0)
-		self.Part.CFrame = self.Position
+		self.Part.CFrame = self.CFrame
 		self.Part.Name = "Hitbox" .. self.TickVal
 	end
 end
