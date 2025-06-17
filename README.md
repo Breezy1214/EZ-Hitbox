@@ -3,7 +3,7 @@
 A flexible, efficient hitbox system for Roblox games that supports both server and client-side hit detection.
 
 ## Installation
-Can be installed through [Wally](https://wally.run/package/breezy1214/hitbox?version=1.0.3)
+Can be installed through [Wally](https://wally.run/package/breezy1214/hitbox?version=2.0.0)
 
 ## Features
 
@@ -33,12 +33,12 @@ Can be installed through [Wally](https://wally.run/package/breezy1214/hitbox?ver
 local Hitbox = require(path.to.Hitbox)
 
 local hitbox = Hitbox.new({
-    InitialPosition = character.HumanoidRootPart.CFrame,
+    InitialCframe = character.HumanoidRootPart.CFrame,
     SizeOrPart = Vector3.new(5, 5, 5),
     Debug = true
 })
 
-hitbox.HitSomeone:Connect(function(hitCharacters)
+hitbox.OnHit:Connect(function(hitCharacters)
     for _, character in ipairs(hitCharacters) do
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         humanoid:TakeDamage(10)
@@ -63,7 +63,7 @@ local hitbox = Hitbox.new({
     Debug = true
 })
 
-hitbox.HitSomeone:Connect(function(hitCharacters)
+hitbox.OnHit:Connect(function(hitCharacters)
     for _, character in ipairs(hitCharacters) do
         -- Handle hit logic
     end
@@ -99,7 +99,7 @@ Creates a new hitbox with the specified parameters.
 
 **Parameters:**
 - `params`: Table of configuration options:
-  - `InitialPosition`: (CFrame) Starting position
+  - `InitialCframe`: (CFrame) Starting cframe
   - `SizeOrPart`: (Vector3|number|Part) Hitbox size or reference part
   - `Debug`: (boolean) Whether to show debug visualization
   - `Debris`: (number) Lifetime in seconds before auto-destruction
@@ -119,7 +119,7 @@ Activates the hitbox for hit detection.
 #### `Hitbox:Stop()`
 Temporarily stops hit detection.
 
-#### `Hitbox:SetPosition(newPosition: CFrame)`
+#### `Hitbox:SetCFrame(newCframe: CFrame)`
 Updates the hitbox position.
 
 #### `Hitbox:WeldTo(part: BasePart, offset: CFrame?)`
@@ -128,16 +128,16 @@ Attaches the hitbox to a part with optional offset.
 #### `Hitbox:Unweld()`
 Detaches the hitbox from any welded part.
 
-#### `Hitbox:ChangeWeldOffset(offset: CFrame)`
+#### `Hitbox:SetWeldOffset(offset: CFrame)`
 Updates the offset for a welded hitbox.
 
-#### `Hitbox:SetVelocityPrediction(enabled: boolean)`
+#### `Hitbox:EnableVelocityPrediction(enabled: boolean)`
 Enables or disables velocity-based position prediction.
 
-#### `Hitbox:SetDebug(enabled: boolean)`
+#### `Hitbox:EnableDebug(enabled: boolean)`
 Toggles debug visualization.
 
-#### `Hitbox:ClearTaggedChars()`
+#### `Hitbox:ClearTaggedCharacters()`
 Clears the list of recently hit characters.
 
 #### `Hitbox:Destroy()`
@@ -145,10 +145,12 @@ Destroys the hitbox and cleans up all resources.
 
 ### Static Methods
 
-#### `Hitbox.ClearHitboxesWithID(id: number|string)`
+#### `Hitbox.ClearHitboxesByID(id: number|string)`
+
 Destroys all hitboxes with the specified ID.
 
-#### `Hitbox.ClearClientHitboxes(client: Player)`
+#### `Hitbox.ClearHitboxesForClient(client: Player)`
+
 Destroys all hitboxes associated with a client.
 
 #### `Hitbox.GetHitboxCache()`
@@ -156,11 +158,45 @@ Returns the current cache of active hitboxes.
 
 ### Events
 
-#### `Hitbox.HitSomeone`
+#### `Hitbox.OnHit`
 Fires when the hitbox detects a character.
 
 #### `Hitbox.HitObject`
 Fires when the hitbox detects an object.
+
+## Migration Guide
+
+### Breaking Changes (v2.0)
+
+⚠️ **BREAKING CHANGE**: The following method names have been modernized. Update your code accordingly:
+
+| Old Name | New Name | Change Type |
+|----------------|-----------------|-------------|
+| `ClearTaggedChars()` | `ClearTaggedCharacters()` | 🔄 Renamed |
+| `SetVelocityPrediction()` | `EnableVelocityPrediction()` | 🔄 Renamed |
+| `SetDebug()` | `EnableDebug()` | 🔄 Renamed |
+| `ChangeWeldOffset()` | `SetWeldOffset()` | 🔄 Renamed |
+| `ClearHitboxesWithID()` | `ClearHitboxesByID()` | 🔄 Renamed |
+| `ClearClientHitboxes()` | `ClearHitboxesForClient()` | 🔄 Renamed |
+| `SetPosition()` | `SetCFrame()` | 🔄 Renamed |
+| `HitSomeone()` | `OnHit()` | 🔄 Renamed |
+| `InitialPosition` | `InitialCframe` | 🔄 Renamed |
+
+### Migration Example
+
+```lua
+-- Old code (v1.x)
+hitbox:ClearTaggedChars()
+hitbox:SetDebug(true)
+hitbox:ChangeWeldOffset(CFrame.new(0, 1, 0))
+Hitbox.ClearHitboxesWithID("combat")
+
+-- New code (v2.0+)
+hitbox:ClearTaggedCharacters()
+hitbox:EnableDebug(true)
+hitbox:SetWeldOffset(CFrame.new(0, 1, 0))
+Hitbox.ClearHitboxesByID("combat")
+```
 
 ## Advanced Configuration
 
