@@ -29,7 +29,7 @@ export type HitboxParams = {
 	ID: (string | number)?,
 	VelocityPrediction: boolean?,
 	Debug: boolean?,
-	Debris: number?,
+	LifeTime: number?,
 	LookingFor: ("Humanoid" | "Object")?,
 
 	-- Private fields

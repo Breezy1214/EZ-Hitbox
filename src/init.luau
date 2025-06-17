@@ -156,7 +156,7 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 
 	self.DebugMode = HitboxParams.Debug or Constants.DEFAULT_DEBUG_MODE
 
-	self.Lifetime = HitboxParams.Debris or Constants.DEFAULT_LIFETIME
+	self.Lifetime = HitboxParams.LifeTime or Constants.DEFAULT_LIFETIME
 
 	self.LookingFor = HitboxParams.LookingFor or Constants.LOOKING_FOR.HUMANOID
 
@@ -280,25 +280,24 @@ function Hitbox:ClearTaggedCharacters()
 end
 
 function Hitbox:Start()
-	-- if the lifetime is greater than 0
 	if self.Lifetime > 0 then
 		-- check to see if there's a timer, if there is one, then start it
 		if not self.Timer then
-			-- make a new timer
-			self.Timer = Timer.new(0.1, function()
+			self.Timer = Timer.Simple(0.1, function()
 				self.Lifetime -= 0.1
 				if self.Lifetime <= 0 then
 					self:Destroy()
 				end
-			end)
+			end, true)
 
 			if self._janitor then
 				self._janitor:Add(self.Timer)
 			end
 		else
-			self.Timer:On()
+			self.Timer:Start()
 		end
 	end
+
 	if self.Client then
 		self.ClientConnection =
 			self._janitor:Add(HitboxRemote.OnServerEvent:Connect(function(player: Player, tickVal: number, HitTable)
@@ -547,7 +546,7 @@ end
 
 function Hitbox:Stop()
 	if self.Timer then
-		self.Timer:Off()
+		self.Timer:Stop()
 	end
 
 	if self.Client then
@@ -558,7 +557,7 @@ function Hitbox:Stop()
 		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.STOP, { _Tick = self.TickVal })
 	else
 		if self.Part then
-			self.Part:Destroy()
+			self.Part.Parent = nil
 		end
 
 		if self.RunServiceConnection then
