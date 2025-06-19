@@ -164,40 +164,6 @@ Fires when the hitbox detects a character.
 #### `Hitbox.HitObject`
 Fires when the hitbox detects an object.
 
-## Migration Guide
-
-### Breaking Changes (v2.0)
-
-⚠️ **BREAKING CHANGE**: The following method names have been modernized. Update your code accordingly:
-
-| Old Name | New Name | Change Type |
-|----------------|-----------------|-------------|
-| `ClearTaggedChars()` | `ClearTaggedCharacters()` | 🔄 Renamed |
-| `SetVelocityPrediction()` | `EnableVelocityPrediction()` | 🔄 Renamed |
-| `SetDebug()` | `EnableDebug()` | 🔄 Renamed |
-| `ChangeWeldOffset()` | `SetWeldOffset()` | 🔄 Renamed |
-| `ClearHitboxesWithID()` | `ClearHitboxesByID()` | 🔄 Renamed |
-| `ClearClientHitboxes()` | `ClearHitboxesForClient()` | 🔄 Renamed |
-| `SetPosition()` | `SetCFrame()` | 🔄 Renamed |
-| `HitSomeone()` | `OnHit()` | 🔄 Renamed |
-| `InitialPosition` | `InitialCframe` | 🔄 Renamed |
-
-### Migration Example
-
-```lua
--- Old code (v1.x)
-hitbox:ClearTaggedChars()
-hitbox:SetDebug(true)
-hitbox:ChangeWeldOffset(CFrame.new(0, 1, 0))
-Hitbox.ClearHitboxesWithID("combat")
-
--- New code (v2.0+)
-hitbox:ClearTaggedCharacters()
-hitbox:EnableDebug(true)
-hitbox:SetWeldOffset(CFrame.new(0, 1, 0))
-Hitbox.ClearHitboxesByID("combat")
-```
-
 ## Advanced Configuration
 
 ### Dot Product Requirements
