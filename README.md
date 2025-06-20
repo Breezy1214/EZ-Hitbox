@@ -29,7 +29,7 @@ Hitbox = "breezy1214/hitbox@3.0.0"
 ```
 
 ### Manual Installation
-1. Download the latest release from the [GitHub repository](https://github.com/your-username/ez-hitbox)
+1. Download the latest release from the GitHub repository
 2. Place the module in your game's ReplicatedStorage
 
 ## ✨ Features
