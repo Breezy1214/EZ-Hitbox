@@ -59,6 +59,64 @@ local RunService = game:GetService("RunService")
 
 local HitboxRemote = nil
 
+local function GetHitPointData(hitboxCFrame: CFrame, targetPart: BasePart): Types.HitPointData?
+	local rayOrigin = hitboxCFrame.Position
+	local rayDirection
+
+	-- Calculate direction from hitbox center to the target part
+	if targetPart.Parent then
+		rayDirection = (targetPart.Position - rayOrigin).Unit * 100 -- Ray distance of 100 studs
+	else
+		return nil
+	end
+
+	local raycastParams = RaycastParams.new()
+	raycastParams.FilterType = Enum.RaycastFilterType.Include
+	raycastParams.FilterDescendantsInstances = { targetPart }
+
+	local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+
+	if raycastResult then
+		local hitData: Types.HitPointData = {
+			Object = targetPart,
+			Position = raycastResult.Position,
+			Normal = raycastResult.Normal,
+			Material = raycastResult.Material,
+		}
+		return hitData
+	end
+
+	return nil
+end
+
+-- Helper function to get hit point data for character
+local function GetCharacterHitPointData(hitboxCFrame: CFrame, character: Model): Types.HitPointData?
+	if not character.PrimaryPart then
+		return nil
+	end
+
+	local rayOrigin = hitboxCFrame.Position
+	local rayDirection = (character.PrimaryPart.Position - rayOrigin).Unit * 100
+
+	local raycastParams = RaycastParams.new()
+	raycastParams.FilterType = Enum.RaycastFilterType.Include
+	raycastParams.FilterDescendantsInstances = { character }
+
+	local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+
+	if raycastResult then
+		local hitData: Types.HitPointData = {
+			Object = character,
+			Position = raycastResult.Position,
+			Normal = raycastResult.Normal,
+			Material = raycastResult.Material,
+		}
+		return hitData
+	end
+
+	return nil
+end
+
 local function SetupClientForPlayer(player: Player, localScript: Script)
 	local screenGUI = Instance.new("ScreenGui")
 	screenGUI.Name = Constants.HITBOX_GUI_NAME
@@ -153,8 +211,11 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 
 	self.OnHit = self._janitor:Add(Signal.new())
 	self.HitObject = self._janitor:Add(Signal.new())
+	self.OnHitWithPoint = self._janitor:Add(Signal.new())
+	self.HitObjectWithPoint = self._janitor:Add(Signal.new())
 
 	self.DebugMode = HitboxParams.Debug or Constants.DEFAULT_DEBUG_MODE
+	self.DetectHitPoints = HitboxParams.DetectHitPoints or false
 
 	self.Lifetime = HitboxParams.LifeTime or Constants.DEFAULT_LIFETIME
 
@@ -299,9 +360,9 @@ function Hitbox:Start()
 	end
 
 	if self.Client then
-		self.ClientConnection =
-			self._janitor:Add(HitboxRemote.OnServerEvent:Connect(function(player: Player, tickVal: number, HitTable)
-				if HitTable == nil then
+		self.ClientConnection = self._janitor:Add(
+			HitboxRemote.OnServerEvent:Connect(function(player: Player, tickVal: number, DataFromClient)
+				if DataFromClient == nil then
 					return
 				end
 				if player ~= self.Client then
@@ -310,8 +371,21 @@ function Hitbox:Start()
 				if tickVal ~= self.TickVal then
 					return
 				end
-				if type(HitTable) ~= "table" then
+				if type(DataFromClient) ~= "table" then
 					return
+				end
+
+				-- Handle both old format (just HitTable) and new format (with hit point data)
+				local HitTable
+				local HitPointData
+
+				if DataFromClient.HitTable then
+					-- New format with hit point data
+					HitTable = DataFromClient.HitTable
+					HitPointData = DataFromClient.HitPointData
+				else
+					-- Old format compatibility
+					HitTable = DataFromClient
 				end
 
 				if self.LookingFor == Constants.LOOKING_FOR.HUMANOID then
@@ -325,12 +399,20 @@ function Hitbox:Start()
 							or (not HitTable[i]:IsA("Model"))
 						then
 							table.remove(HitTable, i)
+							-- Also remove corresponding hit point data if it exists
+							if HitPointData and HitPointData[i] then
+								table.remove(HitPointData, i)
+							end
 						end
 
 						-- if everything else is valid, double check to make sure the model passed in is not in the hitbox's blacklist
 						if self.Blacklist then
 							if table.find(self.Blacklist, HitTable[i]) then
 								table.remove(HitTable, i)
+								-- Also remove corresponding hit point data if it exists
+								if HitPointData and HitPointData[i] then
+									table.remove(HitPointData, i)
+								end
 							end
 						end
 					end
@@ -341,6 +423,11 @@ function Hitbox:Start()
 					end
 
 					self.OnHit:Fire(HitTable)
+
+					-- Fire hit point signal if we have hit point data
+					if self.DetectHitPoints and HitPointData and #HitPointData > 0 then
+						self.OnHitWithPoint:Fire(HitPointData)
+					end
 				elseif self.LookingFor == Constants.LOOKING_FOR.OBJECT then
 					for i = #HitTable, 1, -1 do
 						if
@@ -349,6 +436,10 @@ function Hitbox:Start()
 							or (not HitTable[i]:IsA("BasePart"))
 						then
 							table.remove(HitTable, i)
+							-- Also remove corresponding hit point data if it exists
+							if HitPointData and HitPointData[i] then
+								table.remove(HitPointData, i)
+							end
 							continue
 						end
 
@@ -357,6 +448,10 @@ function Hitbox:Start()
 							for _, blacklisted in pairs(self.Blacklist) do
 								if HitTable[i] == blacklisted or HitTable[i]:IsDescendantOf(blacklisted) then
 									table.remove(HitTable, i)
+									-- Also remove corresponding hit point data if it exists
+									if HitPointData and HitPointData[i] then
+										table.remove(HitPointData, i)
+									end
 								end
 							end
 						end
@@ -368,8 +463,14 @@ function Hitbox:Start()
 					end
 
 					self.HitObject:Fire(HitTable)
+
+					-- Fire hit point signal if we have hit point data
+					if self.DetectHitPoints and HitPointData and #HitPointData > 0 then
+						self.HitObjectWithPoint:Fire(HitPointData)
+					end
 				end
-			end))
+			end)
+		)
 
 		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.START, { _Tick = self.TickVal })
 	elseif self.Mode == Constants.HITBOX_MODE.MAGNITUDE then
@@ -721,9 +822,17 @@ function Hitbox:_SiftThroughSendingObjectsAndFire()
 	end
 
 	local shallowObjectTable = {}
+	local hitPointDataTable = {}
 
 	for _, object in pairs(self.SendingObjects) do
 		table.insert(shallowObjectTable, object)
+		-- Get hit point data if enabled
+		if self.DetectHitPoints then
+			local hitData = GetHitPointData(self.CFrame, object)
+			if hitData then
+				table.insert(hitPointDataTable, hitData)
+			end
+		end
 
 		self.TaggedObjects[object] = true
 
@@ -740,6 +849,11 @@ function Hitbox:_SiftThroughSendingObjectsAndFire()
 		end
 
 		self.HitObject:Fire(shallowObjectTable)
+
+		-- Fire hit point signal if we have hit point data
+		if self.DetectHitPoints and #hitPointDataTable > 0 then
+			self.HitObjectWithPoint:Fire(hitPointDataTable)
+		end
 	end
 
 	if self.SendingObjects then
@@ -753,9 +867,17 @@ function Hitbox:_SiftThroughSendingCharsAndFire()
 	end
 
 	local shallowObjectTable = {}
+	local hitPointDataTable = {}
 
 	for _, character: Model in pairs(self.SendingChars) do
 		table.insert(shallowObjectTable, character)
+		-- Get hit point data if enabled
+		if self.DetectHitPoints then
+			local hitData = GetCharacterHitPointData(self.CFrame, character)
+			if hitData then
+				table.insert(hitPointDataTable, hitData)
+			end
+		end
 
 		self.TaggedChars[character] = true
 
@@ -772,6 +894,11 @@ function Hitbox:_SiftThroughSendingCharsAndFire()
 		end
 
 		self.OnHit:Fire(shallowObjectTable)
+
+		-- Fire hit point signal if we have hit point data
+		if self.DetectHitPoints and #hitPointDataTable > 0 then
+			self.OnHitWithPoint:Fire(hitPointDataTable)
+		end
 	end
 
 	if self.SendingChars then
