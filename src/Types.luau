@@ -18,6 +18,13 @@ export type DotProductRequirement = {
 	Negative: boolean?,
 }
 
+export type HitPointData = {
+	Object: Model | BasePart,
+	Position: Vector3,
+	Normal: Vector3,
+	Material: Enum.Material,
+}
+
 export type HitboxParams = {
 	SizeOrPart: Vector3 | number | BasePart,
 	SpatialOption: ("InBox" | "InRadius" | "InPart")?,
@@ -31,6 +38,7 @@ export type HitboxParams = {
 	Debug: boolean?,
 	LifeTime: number?,
 	LookingFor: ("Humanoid" | "Object")?,
+	DetectHitPoints: boolean?,
 
 	-- Private fields
 	_Tick: number?,
@@ -57,6 +65,9 @@ export type Hitbox = {
 	SendingObjects: { BasePart },
 	OnHit: SignalType,
 	HitObject: SignalType,
+	OnHitWithPoint: SignalType,
+	HitObjectWithPoint: SignalType,
+	DetectHitPoints: boolean,
 	RunServiceConnection: RBXScriptConnection?,
 	ClientConnection: RBXScriptConnection?,
 	PartWeld: BasePart?,
