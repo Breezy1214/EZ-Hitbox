@@ -128,9 +128,6 @@ local hitbox = Hitbox.new({
 
 hitbox.OnHit:Connect(function(hitCharacters)
     for _, character in ipairs(hitCharacters) do
-        -- Send to server for validation
-        remoteEvent:FireServer("ValidateHit", character)
-        
         -- Immediate visual feedback
         createHitEffect(character.HumanoidRootPart.Position)
     end
