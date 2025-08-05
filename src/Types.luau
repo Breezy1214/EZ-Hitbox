@@ -2,14 +2,13 @@ local Types = {}
 
 -- Packages
 local Signal = require(script.Parent.Parent.Signal)
-local Timer = require(script.Parent.Parent.Timer)
 local Janitor = require(script.Parent.Parent.Janitor)
 
 -- Types
 export type SignalType = typeof(Signal.new())
-export type SignalConnection = typeof(Signal.new():Connect())
+export type SignalConnection = RBXScriptConnection
 export type JanitorType = typeof(Janitor.new())
-export type TimerType = typeof(Timer.new())
+export type TimerType = any
 
 export type DotProductRequirement = {
 	DotProduct: number,
@@ -32,7 +31,6 @@ export type HitboxParams = {
 	Blacklist: { Model }?,
 	DebounceTime: number?,
 	DotProductRequirement: DotProductRequirement?,
-	UseClient: Player?,
 	ID: (string | number)?,
 	VelocityPrediction: boolean?,
 	Debug: boolean?,
@@ -47,6 +45,7 @@ export type HitboxParams = {
 export type Hitbox = {
 
 	-- Fields
+	__index: Hitbox,
 
 	Size: Vector3 | number,
 	Mode: "Magnitude" | "Part",
@@ -69,10 +68,8 @@ export type Hitbox = {
 	HitObjectWithPoint: SignalType,
 	DetectHitPoints: boolean,
 	RunServiceConnection: RBXScriptConnection?,
-	ClientConnection: RBXScriptConnection?,
 	PartWeld: BasePart?,
 	PartWeldOffset: CFrame?,
-	Client: Player?,
 	VelocityPrediction: boolean?,
 	DebugMode: boolean,
 	Lifetime: number,
@@ -81,10 +78,10 @@ export type Hitbox = {
 	-- Methods
 
 	new: (HitboxParams) -> (Hitbox, boolean),
-	ClearHitboxesForClient: (Client: Player) -> (),
 	ClearHitboxesByID: (ID: string | number) -> (),
 	GetHitboxCache: () -> { Hitbox },
 	ClearTaggedCharacters: (self: Hitbox) -> (),
+	GetParts: (self: Hitbox) -> { Model | BasePart },
 	Start: (self: Hitbox) -> (),
 	Stop: (self: Hitbox) -> (),
 	SetCFrame: (self: Hitbox, Cframe: CFrame) -> (),

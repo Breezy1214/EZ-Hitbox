@@ -1,10 +1,10 @@
 # 🎯 EZ Hitbox
 
-[![Wally](https://img.shields.io/badge/Wally-3.0.0-blue)](https://wally.run/package/breezy1214/hitbox?version=3.0.0)
+[![Wally](https://img.shields.io/badge/Wally-4.0.0-blue)](https://wally.run/package/breezy1214/hitbox?version=4.0.0)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Roblox](https://img.shields.io/badge/Platform-Roblox-00A2FF)](https://create.roblox.com/store/asset/104231461734810/Hitbox)
 
-A flexible, high-performance hitbox system for Roblox games that supports both server and client-side hit detection with advanced features like hit point detection, velocity prediction, and comprehensive debugging tools.
+A flexible, high-performance hitbox system for Roblox games with advanced features like hit point detection, velocity prediction, and comprehensive debugging tools. Works seamlessly on both server and client.
 
 ## 📋 Table of Contents
 
@@ -25,7 +25,7 @@ A flexible, high-performance hitbox system for Roblox games that supports both s
 ### Wally (Recommended)
 ```toml
 [dependencies]
-Hitbox = "breezy1214/hitbox@3.0.0"
+Hitbox = "breezy1214/hitbox@4.0.0"
 ```
 
 ### Manual Installation
@@ -35,7 +35,7 @@ Hitbox = "breezy1214/hitbox@3.0.0"
 ## ✨ Features
 
 ### Core Functionality
-- 🎯 **Server and client-side hit detection** - Choose the best approach for your game
+- 🎯 **Universal hit detection** - Works identically on server and client
 - 🔍 **Precise hit point detection** - Get exact collision positions, normals, and materials
 - 📐 **Multiple hitbox shapes** - Support for box, sphere, and custom part shapes
 - 👤 **Flexible target detection** - Detect humanoids, objects, or both
@@ -109,16 +109,15 @@ end)
 hitbox:Start()
 ```
 
-### 🔵 Client-Side Hitbox
+### 🔵 Basic Client-Side Hitbox
 
-Ideal for responsive combat systems with server validation:
+Perfect for responsive visual effects and client-side feedback:
 
 ```lua
 local Hitbox = require(path.to.Hitbox)
 
--- Client-side hitbox for instant feedback
+-- Create a client-side hitbox for instant feedback
 local hitbox = Hitbox.new({
-    UseClient = player,
     SizeOrPart = 6, -- Sphere with radius 6
     SpatialOption = "InRadius",
     LookingFor = "Humanoid",
@@ -130,6 +129,8 @@ hitbox.OnHit:Connect(function(hitCharacters)
     for _, character in ipairs(hitCharacters) do
         -- Immediate visual feedback
         createHitEffect(character.HumanoidRootPart.Position)
+        -- Send to server for validation if needed
+        remoteEvents.ValidateHit:FireServer(character)
     end
 end)
 
@@ -254,7 +255,6 @@ Creates a new hitbox instance with the specified configuration.
 | `Blacklist` | `{ Model }` | `{}` | Model instances to exclude |
 | `DebounceTime` | `number` | `0` | Cooldown between hitting same target |
 | `DotProductRequirement` | `DotProductRequirement` | `nil` | Directional hit filtering |
-| `UseClient` | `Player` | `nil` | Enable client-side detection |
 | `ID` | `string \| number` | `nil` | Unique identifier for grouping hitboxes |
 | `VelocityPrediction` | `boolean` | `false` | Compensate for movement |
 | `Debug` | `boolean` | `false` | Show visual debug representation |
@@ -314,6 +314,29 @@ Toggles visual debug representation.
 
 Clears the internal list of recently hit characters, allowing them to be hit again immediately.
 
+#### `Hitbox:GetParts() -> {Model | BasePart}`
+
+Returns what's currently inside the hitbox. This method provides an immediate snapshot of all detected targets based on the hitbox's `LookingFor` setting.
+
+**Returns:**
+- Array of `Model` instances (characters) if `LookingFor = "Humanoid"`
+- Array of `BasePart` instances if `LookingFor = "Object"`
+
+**Example:**
+```lua
+local hitbox = Hitbox.new({
+    SizeOrPart = Vector3.new(10, 10, 10),
+    LookingFor = "Humanoid",
+    Debug = true
+})
+
+-- Get immediate results
+local hitTargets = hitbox:GetParts()
+for _, character in ipairs(hitTargets) do
+    print("Currently detecting:", character.Name)
+end
+```
+
 #### `Hitbox:Destroy() -> void`
 
 Destroys the hitbox and cleans up all resources. Always call this when done!
@@ -323,10 +346,6 @@ Destroys the hitbox and cleans up all resources. Always call this when done!
 #### `Hitbox.ClearHitboxesByID(id: number | string) -> void`
 
 Destroys all hitboxes with the specified ID. Useful for cleaning up multiple hitboxes at once.
-
-#### `Hitbox.ClearHitboxesForClient(client: Player) -> void`
-
-Destroys all hitboxes associated with a specific client.
 
 #### `Hitbox.GetHitboxCache() -> {Hitbox}`
 
@@ -491,9 +510,9 @@ hitbox:EnableVelocityPrediction(true)
 
 ### Performance Optimization
 
-1. **🎯 Choose the Right Detection Mode**
-   - Use client-side hitboxes for responsive combat with server validation
-   - Use server-side for authoritative hit detection
+1. **🎯 Choose the Right Implementation**
+   - Use server-side hitboxes for authoritative hit detection
+   - Use client-side hitboxes for responsive visual feedback and validation
 
 2. **🚫 Use Blacklists Effectively**
    - Always exclude the attacker from their own hitboxes
@@ -505,10 +524,10 @@ hitbox:EnableVelocityPrediction(true)
 
 ### Combat System Design
 
-4. **⚡ Implement Proper Debouncing**
+1. **⚡ Implement Proper Debouncing**
    - Use debounce times to prevent hit spamming
 
-5. **🔄 Memory Management**
+2. **🔄 Memory Management**
    - Always call `:Destroy()` when hitboxes are no longer needed
    - Use `ClearHitboxesByID()` for bulk cleanup
 
@@ -526,15 +545,6 @@ hitbox:EnableVelocityPrediction(true)
 - ✅ Check that `SpatialOption` matches your `SizeOrPart` type
 - ✅ Confirm targets aren't in the `Blacklist`
 - ✅ Enable `Debug = true` to visualize the hitbox
-
-#### ❌ Client-Side Hitboxes Not Working
-
-**Problem**: Client hitboxes aren't functioning
-
-**Solutions**:
-- ✅ Ensure `UseClient` parameter is set to the correct player
-- ✅ Check that the client has access to the hitbox module
-- ✅ Confirm HitboxSettings folder exists in ReplicatedStorage
 
 #### ❌ Performance Issues
 

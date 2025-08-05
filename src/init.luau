@@ -1,9 +1,6 @@
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local StarterPlayer = game:GetService("StarterPlayer")
-local Players = game:GetService("Players")
-
 local Constants = require(script.Constants)
 
 -- Module setup and configuration
@@ -56,8 +53,6 @@ overlapParamsObject.FilterType = Enum.RaycastFilterType.Exclude
 local CFrameZero = CFrame.new(Vector3.zero)
 
 local RunService = game:GetService("RunService")
-
-local HitboxRemote = nil
 
 local function GetHitPointData(hitboxCFrame: CFrame, targetPart: BasePart): Types.HitPointData?
 	local rayOrigin = hitboxCFrame.Position
@@ -117,78 +112,12 @@ local function GetCharacterHitPointData(hitboxCFrame: CFrame, character: Model):
 	return nil
 end
 
-local function SetupClientForPlayer(player: Player, localScript: Script)
-	local screenGUI = Instance.new("ScreenGui")
-	screenGUI.Name = Constants.HITBOX_GUI_NAME
-	screenGUI.ResetOnSpawn = false
-
-	local newScriptClone = localScript:Clone()
-	newScriptClone.Parent = screenGUI
-
-	local pointer = Instance.new("ObjectValue")
-	pointer.Name = "HitboxClassPointer"
-	pointer.Value = script
-	pointer.Parent = newScriptClone
-	newScriptClone.Enabled = true
-
-	-- Use PlayerGui if it exists or wait for it
-	screenGUI.Parent = player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui")
-end
-
-local function SetupClients()
-	local newRemoteEvent = Instance.new("RemoteEvent")
-	newRemoteEvent.Name = Constants.REMOTE_EVENT_NAME
-	newRemoteEvent.Parent = ReplicatedStorage
-	HitboxRemote = newRemoteEvent
-
-	local newLocalScript = script.HitboxClassLocal:Clone()
-	newLocalScript.Parent = StarterPlayer:FindFirstChildOfClass("StarterPlayerScripts")
-
-	local pointer = Instance.new("ObjectValue")
-	pointer.Name = "HitboxClassPointer"
-	pointer.Value = script
-	pointer.Parent = newLocalScript
-
-	newLocalScript.Enabled = true
-
-	-- Process existing players
-	for _, player in pairs(Players:GetPlayers()) do
-		task.spawn(function()
-			SetupClientForPlayer(player, newLocalScript)
-		end)
-	end
-end
-
-if RunService:IsServer() then
-	SetupClients()
-else
-	HitboxRemote = ReplicatedStorage:FindFirstChild(Constants.REMOTE_EVENT_NAME)
-	if not HitboxRemote then
-		warn("HitboxClass must be initialized on the server before using it on the client! Waiting for RemoteEvent!")
-		HitboxRemote = ReplicatedStorage:WaitForChild(Constants.REMOTE_EVENT_NAME)
-	end
-end
-
 local Hitbox = {} :: Types.Hitbox
-
+Hitbox.__index = Hitbox
 local HitboxCache = {} :: { Types.Hitbox }
 
-local function DeepCopyTable(tableToCopy: {})
-	local copy = {}
-
-	for key, value in pairs(tableToCopy) do
-		if type(value) == "table" then
-			copy[key] = DeepCopyTable(value)
-		else
-			copy[key] = value
-		end
-	end
-
-	return copy
-end
-
 function Hitbox.new(HitboxParams: Types.HitboxParams)
-	local self = (setmetatable({}, { __index = Hitbox }) :: unknown) :: Types.Hitbox
+	local self = (setmetatable({}, Hitbox) :: unknown) :: Types.Hitbox
 
 	self._janitor = Janitor.new()
 
@@ -221,110 +150,66 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 
 	self.LookingFor = HitboxParams.LookingFor or Constants.LOOKING_FOR.HUMANOID
 
-	if HitboxParams.UseClient then
-		self.Client = HitboxParams.UseClient
+	self.CFrame = HitboxParams.InitialCframe or CFrameZero
+	self.DebounceTime = HitboxParams.DebounceTime or Constants.DEFAULT_DEBOUNCE_TIME
+	self.VelocityPrediction = HitboxParams.VelocityPrediction
 
-		-- copy the params
-		local newDictionary = DeepCopyTable(HitboxParams) :: Types.HitboxParams
+	if self.VelocityPrediction == nil then
+		self.VelocityPrediction = Constants.DEFAULT_VELOCITY_PREDICTION
+	end
 
-		-- get rid of the UseClient parameter
-		newDictionary.UseClient = nil
+	self.DotProductRequirement = HitboxParams.DotProductRequirement
 
-		-- set the tickval to be the same as the hitbox's tickval
-		newDictionary._Tick = self.TickVal
+	self.DebugMode = HitboxParams.Debug or false
 
-		-- fire to the client and wait for a response to ensure they got their hitbox set up
-		local readyToGo = false
+	if typeof(HitboxParams.SizeOrPart) == "Vector3" then
+		self.SpatialOption = HitboxParams.SpatialOption or Constants.SPATIAL_OPTION.IN_BOX
 
-		local tempWaitEvent: RBXScriptConnection
+		assert(
+			self.SpatialOption ~= Constants.SPATIAL_OPTION.IN_RADIUS,
+			"You can't use InRadius as the SpatialOption if a Vector3 is passed! Only InPart and InBox! (HitboxClass)"
+		)
 
-		tempWaitEvent = HitboxRemote.OnServerEvent:Connect(function(player, tickVal)
-			if player ~= self.Client then
-				return
-			end
-			if tickVal ~= self.TickVal then
-				return
-			end
+		self.Mode = Constants.HITBOX_MODE.PART
+		self.Size = HitboxParams.SizeOrPart
 
-			readyToGo = true
-		end)
-
-		assert(self.Client, "Client was not provided for the hitbox! (HitboxClass)")
-
-		local startWaitTime = workspace:GetServerTimeNow()
-
-		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.NEW, newDictionary)
-
-		repeat
-			task.wait()
-		until readyToGo or workspace:GetServerTimeNow() - startWaitTime >= Constants.CLIENT_RESPONSE_TIMEOUT
-
-		tempWaitEvent:Disconnect()
-
-		if not readyToGo then
-			return self, false
+		if self.SpatialOption == Constants.SPATIAL_OPTION.IN_PART then
+			self:_GeneratePart()
 		end
-	else
-		self.CFrame = HitboxParams.InitialCframe or CFrameZero
-		self.DebounceTime = HitboxParams.DebounceTime or Constants.DEFAULT_DEBOUNCE_TIME
-		self.VelocityPrediction = HitboxParams.VelocityPrediction
+	elseif type(HitboxParams.SizeOrPart) == "number" then
+		self.SpatialOption = HitboxParams.SpatialOption or Constants.SPATIAL_OPTION.MAGNITUDE
 
-		if self.VelocityPrediction == nil then
-			self.VelocityPrediction = Constants.DEFAULT_VELOCITY_PREDICTION
-		end
-
-		self.DotProductRequirement = HitboxParams.DotProductRequirement
-
-		self.DebugMode = HitboxParams.Debug or false
-
-		if typeof(HitboxParams.SizeOrPart) == "Vector3" then
-			self.SpatialOption = HitboxParams.SpatialOption or Constants.SPATIAL_OPTION.IN_BOX
-
-			assert(
-				self.SpatialOption ~= Constants.SPATIAL_OPTION.IN_RADIUS,
-				"You can't use InRadius as the SpatialOption if a Vector3 is passed! Only InPart and InBox! (HitboxClass)"
-			)
-
+		if self.SpatialOption == Constants.SPATIAL_OPTION.IN_RADIUS then
 			self.Mode = Constants.HITBOX_MODE.PART
 			self.Size = HitboxParams.SizeOrPart
-
-			if self.SpatialOption == Constants.SPATIAL_OPTION.IN_PART then
-				self:_GeneratePart()
-			end
-		elseif type(HitboxParams.SizeOrPart) == "number" then
-			self.SpatialOption = HitboxParams.SpatialOption or Constants.SPATIAL_OPTION.MAGNITUDE
-
-			if self.SpatialOption == Constants.SPATIAL_OPTION.IN_RADIUS then
-				self.Mode = Constants.HITBOX_MODE.PART
-				self.Size = HitboxParams.SizeOrPart
-			elseif self.SpatialOption == Constants.SPATIAL_OPTION.IN_PART then
-				self.Mode = Constants.HITBOX_MODE.PART
-				self.Size = Vector3.new(HitboxParams.SizeOrPart, HitboxParams.SizeOrPart, HitboxParams.SizeOrPart)
-				self:_GeneratePart()
-			elseif self.SpatialOption == Constants.SPATIAL_OPTION.IN_BOX then
-				self.Mode = Constants.HITBOX_MODE.PART
-				self.Size = Vector3.new(HitboxParams.SizeOrPart, HitboxParams.SizeOrPart, HitboxParams.SizeOrPart)
-			else
-				self.Mode = Constants.HITBOX_MODE.MAGNITUDE
-				self.Size = HitboxParams.SizeOrPart
-			end
-		else
+		elseif self.SpatialOption == Constants.SPATIAL_OPTION.IN_PART then
 			self.Mode = Constants.HITBOX_MODE.PART
-			self.Size = HitboxParams.SizeOrPart.Size
-			self.Part = self._janitor:Add(HitboxParams.SizeOrPart:Clone())
-
-			self.SpatialOption = Constants.SPATIAL_OPTION.IN_PART
-
-			assert(self.Part, "No part provided?")
-
-			assert(self.Part and self.Part:IsA("Part"), "Part provided wasn't a part! (HitboxClass)")
-
-			self.Part.Color = Constants.DEBUG_PART.COLOR
-			self.Part.Name = "Hitbox" .. self.TickVal
+			self.Size = Vector3.new(HitboxParams.SizeOrPart, HitboxParams.SizeOrPart, HitboxParams.SizeOrPart)
+			self:_GeneratePart()
+		elseif self.SpatialOption == Constants.SPATIAL_OPTION.IN_BOX then
+			self.Mode = Constants.HITBOX_MODE.PART
+			self.Size = Vector3.new(HitboxParams.SizeOrPart, HitboxParams.SizeOrPart, HitboxParams.SizeOrPart)
+		else
+			self.Mode = Constants.HITBOX_MODE.MAGNITUDE
+			self.Size = HitboxParams.SizeOrPart
 		end
-		if self.DebugMode then
-			self:EnableDebug(true)
-		end
+	else
+		self.Mode = Constants.HITBOX_MODE.PART
+		self.Size = HitboxParams.SizeOrPart.Size
+		self.Part = self._janitor:Add(HitboxParams.SizeOrPart:Clone())
+
+		self.SpatialOption = Constants.SPATIAL_OPTION.IN_PART
+
+		assert(self.Part, "No part provided?")
+
+		assert(self.Part and self.Part:IsA("Part"), "Part provided wasn't a part! (HitboxClass)")
+
+		self.Part.Color = Constants.DEBUG_PART.COLOR
+		self.Part.Name = "Hitbox" .. self.TickVal
+	end
+
+	if self.DebugMode then
+		self:EnableDebug(true)
 	end
 
 	table.insert(HitboxCache, self)
@@ -333,11 +218,137 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 end
 
 function Hitbox:ClearTaggedCharacters()
-	if self.Client then
-		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.CLEAR_TAG, { _Tick = self.TickVal })
+	table.clear(self.TaggedChars)
+end
+
+-- This method returns what's currently inside the hitbox without using events
+-- Returns either characters (Models) or objects (BaseParts) depending on LookingFor setting
+function Hitbox:GetParts()
+	local foundItems: { Model | BasePart } = {}
+
+	if self.Mode == Constants.HITBOX_MODE.MAGNITUDE then
+		-- Magnitude-based hitbox detection
+		if typeof(self.Size) ~= "number" then
+			warn("GetParts() called on magnitude hitbox but Size is not a number")
+			return foundItems
+		end
+
+		for _, Character: Instance in pairs(aliveFolder:GetChildren()) do
+			if
+				Character:IsA("Model")
+				and Character.PrimaryPart ~= nil
+				and Character:FindFirstChildOfClass("Humanoid")
+			then
+				local magnitude = (self.CFrame.Position - Character.PrimaryPart.Position).Magnitude
+
+				if magnitude <= self.Size then
+					if self.Blacklist and table.find(self.Blacklist, Character) then
+						continue
+					end
+
+					-- Check dot product if required
+					if self.DotProductRequirement then
+						local VectorToCompare = (
+							Character.PrimaryPart.CFrame.Position
+							- self.DotProductRequirement.PartForVector.CFrame.Position
+						).Unit
+
+						local VectorOfUser: Vector3
+
+						if self.DotProductRequirement.VectorType then
+							if self.DotProductRequirement.VectorType == "LookVector" then
+								VectorOfUser = self.DotProductRequirement.PartForVector.CFrame.LookVector
+							elseif self.DotProductRequirement.VectorType == "UpVector" then
+								VectorOfUser = self.DotProductRequirement.PartForVector.CFrame.UpVector
+							elseif self.DotProductRequirement.VectorType == "RightVector" then
+								VectorOfUser = self.DotProductRequirement.PartForVector.CFrame.RightVector
+							end
+						else
+							VectorOfUser = self.DotProductRequirement.PartForVector.CFrame.LookVector
+						end
+
+						if self.DotProductRequirement.Negative then
+							VectorOfUser *= -1
+						end
+
+						if VectorToCompare:Dot(VectorOfUser) < self.DotProductRequirement.DotProduct then
+							continue
+						end
+					end
+
+					table.insert(foundItems, Character)
+				end
+			end
+		end
 	else
-		table.clear(self.TaggedChars)
+		-- Part-based hitbox detection (InBox, InRadius, InPart)
+		local spatialResults
+
+		if self.SpatialOption == Constants.SPATIAL_OPTION.IN_BOX then
+			if self.LookingFor == Constants.LOOKING_FOR.HUMANOID then
+				spatialResults = workspace:GetPartBoundsInBox(self.CFrame, self.Size, overlapParamsHumanoid)
+			else
+				spatialResults = workspace:GetPartBoundsInBox(self.CFrame, self.Size, overlapParamsObject)
+			end
+		elseif self.SpatialOption == Constants.SPATIAL_OPTION.IN_RADIUS then
+			if self.LookingFor == Constants.LOOKING_FOR.HUMANOID then
+				spatialResults = workspace:GetPartBoundsInRadius(self.CFrame.Position, self.Size, overlapParamsHumanoid)
+			else
+				spatialResults = workspace:GetPartBoundsInRadius(self.CFrame.Position, self.Size, overlapParamsObject)
+			end
+		else -- IN_PART
+			if self.LookingFor == Constants.LOOKING_FOR.HUMANOID then
+				spatialResults = workspace:GetPartsInPart(self.Part, overlapParamsHumanoid)
+			else
+				spatialResults = workspace:GetPartsInPart(self.Part, overlapParamsObject)
+			end
+		end
+
+		for _, part: BasePart in pairs(spatialResults) do
+			if not part.Parent then
+				continue
+			end
+
+			if self.LookingFor == Constants.LOOKING_FOR.HUMANOID then
+				local character = part.Parent
+
+				if
+					not character:IsA("Model")
+					or character.PrimaryPart == nil
+					or not character:FindFirstChildOfClass("Humanoid")
+				then
+					continue
+				end
+
+				if self.Blacklist and table.find(self.Blacklist, character) then
+					continue
+				end
+
+				-- Avoid duplicates
+				if not table.find(foundItems, character) then
+					table.insert(foundItems, character)
+				end
+			else
+				local blacklistFound = false
+
+				if self.Blacklist then
+					for _, blacklistedItem in pairs(self.Blacklist) do
+						local blacklistedInstance = blacklistedItem :: Instance
+						if part == blacklistedInstance or part:IsDescendantOf(blacklistedInstance) then
+							blacklistFound = true
+							break
+						end
+					end
+				end
+
+				if not blacklistFound and not table.find(foundItems, part) then
+					table.insert(foundItems, part)
+				end
+			end
+		end
 	end
+
+	return foundItems
 end
 
 function Hitbox:Start()
@@ -359,121 +370,7 @@ function Hitbox:Start()
 		end
 	end
 
-	if self.Client then
-		self.ClientConnection = self._janitor:Add(
-			HitboxRemote.OnServerEvent:Connect(function(player: Player, tickVal: number, DataFromClient)
-				if DataFromClient == nil then
-					return
-				end
-				if player ~= self.Client then
-					return
-				end
-				if tickVal ~= self.TickVal then
-					return
-				end
-				if type(DataFromClient) ~= "table" then
-					return
-				end
-
-				-- Handle both old format (just HitTable) and new format (with hit point data)
-				local HitTable
-				local HitPointData
-
-				if DataFromClient.HitTable then
-					-- New format with hit point data
-					HitTable = DataFromClient.HitTable
-					HitPointData = DataFromClient.HitPointData
-				else
-					-- Old format compatibility
-					HitTable = DataFromClient
-				end
-
-				if self.LookingFor == Constants.LOOKING_FOR.HUMANOID then
-					-- remove all HitTable that isn't a model, isn't a descendant of the alive folder, or doesn't have a humanoid, or is nil entirely
-					for i = #HitTable, 1, -1 do
-						if
-							not HitTable[i]
-							or (typeof(HitTable[i]) ~= "Instance")
-							or (not HitTable[i]:IsDescendantOf(aliveFolder))
-							or (not HitTable[i]:FindFirstChildOfClass("Humanoid"))
-							or (not HitTable[i]:IsA("Model"))
-						then
-							table.remove(HitTable, i)
-							-- Also remove corresponding hit point data if it exists
-							if HitPointData and HitPointData[i] then
-								table.remove(HitPointData, i)
-							end
-						end
-
-						-- if everything else is valid, double check to make sure the model passed in is not in the hitbox's blacklist
-						if self.Blacklist then
-							if table.find(self.Blacklist, HitTable[i]) then
-								table.remove(HitTable, i)
-								-- Also remove corresponding hit point data if it exists
-								if HitPointData and HitPointData[i] then
-									table.remove(HitPointData, i)
-								end
-							end
-						end
-					end
-
-					-- if after everything is said and done there's nothing left, don't fire the signal
-					if #HitTable <= 0 then
-						return
-					end
-
-					self.OnHit:Fire(HitTable)
-
-					-- Fire hit point signal if we have hit point data
-					if self.DetectHitPoints and HitPointData and #HitPointData > 0 then
-						self.OnHitWithPoint:Fire(HitPointData)
-					end
-				elseif self.LookingFor == Constants.LOOKING_FOR.OBJECT then
-					for i = #HitTable, 1, -1 do
-						if
-							not HitTable[i]
-							or (typeof(HitTable[i]) ~= "Instance")
-							or (not HitTable[i]:IsA("BasePart"))
-						then
-							table.remove(HitTable, i)
-							-- Also remove corresponding hit point data if it exists
-							if HitPointData and HitPointData[i] then
-								table.remove(HitPointData, i)
-							end
-							continue
-						end
-
-						-- if everything else is valid, double check to make sure the model passed in is not in the hitbox's blacklist
-						if self.Blacklist then
-							for _, blacklisted in pairs(self.Blacklist) do
-								if HitTable[i] == blacklisted or HitTable[i]:IsDescendantOf(blacklisted) then
-									table.remove(HitTable, i)
-									-- Also remove corresponding hit point data if it exists
-									if HitPointData and HitPointData[i] then
-										table.remove(HitPointData, i)
-									end
-								end
-							end
-						end
-					end
-
-					-- if after everything is said and done there's nothing left, don't fire the signal
-					if #HitTable <= 0 then
-						return
-					end
-
-					self.HitObject:Fire(HitTable)
-
-					-- Fire hit point signal if we have hit point data
-					if self.DetectHitPoints and HitPointData and #HitPointData > 0 then
-						self.HitObjectWithPoint:Fire(HitPointData)
-					end
-				end
-			end)
-		)
-
-		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.START, { _Tick = self.TickVal })
-	elseif self.Mode == Constants.HITBOX_MODE.MAGNITUDE then
+	if self.Mode == Constants.HITBOX_MODE.MAGNITUDE then
 		assert(
 			typeof(self.Size) == "number",
 			"Magnitude hitbox wasn't given a number! Type given: " .. typeof(self.Size)
@@ -618,7 +515,8 @@ function Hitbox:Start()
 					if self.Blacklist then
 						-- Check against blacklist with early termination
 						for _, blacklistedItem in pairs(self.Blacklist) do
-							if part == blacklistedItem or part:IsDescendantOf(blacklistedItem) then
+							local blacklistedInstance = blacklistedItem :: Instance
+							if part == blacklistedInstance or part:IsDescendantOf(blacklistedInstance) then
 								blacklistFound = true
 								break
 							end
@@ -650,33 +548,17 @@ function Hitbox:Stop()
 		self.Timer:Stop()
 	end
 
-	if self.Client then
-		if self.ClientConnection then
-			self.ClientConnection:Disconnect()
-			self.ClientConnection = nil
-		end
-		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.STOP, { _Tick = self.TickVal })
-	else
-		if self.Part then
-			self.Part.Parent = nil
-		end
+	if self.Part then
+		self.Part.Parent = nil
+	end
 
-		if self.RunServiceConnection then
-			self.RunServiceConnection:Disconnect()
-			self.RunServiceConnection = nil
-		end
+	if self.RunServiceConnection then
+		self.RunServiceConnection:Disconnect()
+		self.RunServiceConnection = nil
 	end
 end
 
 function Hitbox:SetCFrame(newCframe: CFrame)
-	if self.Client then
-		HitboxRemote:FireClient(
-			self.Client,
-			Constants.REMOTE_MODE.POSITION_CHANGE,
-			{ _Tick = self.TickVal, CFrame = newCframe }
-		)
-	end
-
 	local constant
 
 	if velocityConstant then
@@ -694,7 +576,7 @@ function Hitbox:SetCFrame(newCframe: CFrame)
 
 	if self.Part then
 		self.Part.CFrame = newCframe
-	elseif self.DebugMode and not self.Client then
+	elseif self.DebugMode then
 		-- Generate debug part if it doesn't exist but debug mode is enabled
 		self:_GeneratePart()
 		if self.Part then
@@ -705,36 +587,16 @@ function Hitbox:SetCFrame(newCframe: CFrame)
 end
 
 function Hitbox:WeldTo(PartToWeldTo: BasePart, OffsetCFrame: CFrame?)
-	if self.Client then
-		HitboxRemote:FireClient(
-			self.Client,
-			Constants.REMOTE_MODE.WELD,
-			{ _Tick = self.TickVal, WeldTo = PartToWeldTo, Offset = OffsetCFrame }
-		)
-	end
-
 	self.PartWeld = PartToWeldTo
 	self.PartWeldOffset = OffsetCFrame
 end
 
 function Hitbox:Unweld()
-	if self.Client then
-		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.UNWELD, { _Tick = self.TickVal })
-	end
-
 	self.PartWeld = nil
 	self.PartWeldOffset = nil
 end
 
 function Hitbox:SetWeldOffset(OffsetCFrame: CFrame)
-	if self.Client then
-		HitboxRemote:FireClient(
-			self.Client,
-			Constants.REMOTE_MODE.WELD_OFFSET,
-			{ _Tick = self.TickVal, Offset = OffsetCFrame }
-		)
-	end
-
 	self.PartWeldOffset = OffsetCFrame
 end
 
@@ -744,11 +606,6 @@ end
 
 function Hitbox:EnableDebug(state: boolean)
 	self.DebugMode = state
-
-	if self.Client then
-		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.DEBUG, { _Tick = self.TickVal, Debug = state })
-		return
-	end
 
 	if self.DebugMode then
 		if not self.Part then
@@ -792,26 +649,6 @@ function Hitbox.ClearHitboxesByID(ID: number | string)
 	end
 end
 
-function Hitbox.ClearHitboxesForClient(client: Player)
-	if RunService:IsClient() then
-		return
-	end
-
-	-- go through the cache and destroy any hitboxes associated with the client
-	for i = #HitboxCache, 1, -1 do
-		local checkingHitbox = HitboxCache[i]
-
-		if checkingHitbox.Client and checkingHitbox.Client == client then
-			pcall(function()
-				checkingHitbox:Destroy()
-			end)
-		end
-	end
-
-	-- make sure everything is cleared on the client
-	HitboxRemote:FireClient(client, "Clr")
-end
-
 function Hitbox.GetHitboxCache()
 	return HitboxCache
 end
@@ -844,10 +681,6 @@ function Hitbox:_SiftThroughSendingObjectsAndFire()
 	end
 
 	if #shallowObjectTable > 0 then
-		if RunService:IsClient() then
-			HitboxRemote:FireServer(self.TickVal, shallowObjectTable)
-		end
-
 		self.HitObject:Fire(shallowObjectTable)
 
 		-- Fire hit point signal if we have hit point data
@@ -889,10 +722,6 @@ function Hitbox:_SiftThroughSendingCharsAndFire()
 	end
 
 	if #shallowObjectTable > 0 then
-		if RunService:IsClient() then
-			HitboxRemote:FireServer(self.TickVal, shallowObjectTable)
-		end
-
 		self.OnHit:Fire(shallowObjectTable)
 
 		-- Fire hit point signal if we have hit point data
@@ -957,11 +786,6 @@ function Hitbox:Destroy()
 	local index = table.find(HitboxCache, self)
 	if index then
 		table.remove(HitboxCache, index)
-	end
-
-	-- Tell the client to destroy the hitbox on their end
-	if self.Client then
-		HitboxRemote:FireClient(self.Client, Constants.REMOTE_MODE.DESTROY, { _Tick = self.TickVal })
 	end
 
 	self.TaggedChars = {}

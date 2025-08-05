@@ -1,10 +1,6 @@
 --!strict
 local Constants = {}
 
--- Remote event settings
-Constants.REMOTE_EVENT_NAME = "HitboxClassRemote"
-Constants.HITBOX_GUI_NAME = "HitboxClassContainer"
-
 -- Module settings folder
 Constants.SETTINGS_FOLDER_NAME = "HitboxSettings"
 Constants.ALIVE_FOLDER_SETTING_NAME = "Alive Folder"
@@ -21,37 +17,22 @@ Constants.DEFAULT_VELOCITY_PREDICTION = true
 
 -- Hitbox mode types
 Constants.HITBOX_MODE = {
-	MAGNITUDE = "Magnitude",
-	PART = "Part",
+	MAGNITUDE = "Magnitude" :: "Magnitude",
+	PART = "Part" :: "Part",
 }
 
 -- Spatial option types
 Constants.SPATIAL_OPTION = {
-	IN_BOX = "InBox",
-	IN_RADIUS = "InRadius",
-	IN_PART = "InPart",
-	MAGNITUDE = "Magnitude",
+	IN_BOX = "InBox" :: "InBox",
+	IN_RADIUS = "InRadius" :: "InRadius",
+	IN_PART = "InPart" :: "InPart",
+	MAGNITUDE = "Magnitude" :: "Magnitude",
 }
 
 -- Looking for types
 Constants.LOOKING_FOR = {
-	HUMANOID = "Humanoid",
-	OBJECT = "Object",
-}
-
--- Remote event modes
-Constants.REMOTE_MODE = {
-	CLEAR = "Clr",
-	NEW = "New",
-	START = "Start",
-	STOP = "Stop",
-	CLEAR_TAG = "ClrTag",
-	WELD = "Weld",
-	WELD_OFFSET = "WeldOfs",
-	UNWELD = "Unweld",
-	POSITION_CHANGE = "PosCh",
-	DEBUG = "Dbg",
-	DESTROY = "Des",
+	HUMANOID = "Humanoid" :: "Humanoid",
+	OBJECT = "Object" :: "Object",
 }
 
 -- Part visualization settings
@@ -60,8 +41,5 @@ Constants.DEBUG_PART = {
 	VISIBLE_TRANSPARENCY = 0.45,
 	INVISIBLE_TRANSPARENCY = 1,
 }
-
--- Client response timeout
-Constants.CLIENT_RESPONSE_TIMEOUT = 1.5
 
 return Constants
