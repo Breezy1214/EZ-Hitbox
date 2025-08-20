@@ -1,6 +1,6 @@
 # 🎯 EZ Hitbox
 
-[![Wally](https://img.shields.io/badge/Wally-4.0.1-blue)](https://wally.run/package/breezy1214/hitbox?version=4.0.1)
+[![Wally](https://img.shields.io/badge/Wally-4.0.2-blue)](https://wally.run/package/breezy1214/hitbox?version=4.0.2)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Roblox](https://img.shields.io/badge/Platform-Roblox-00A2FF)](https://create.roblox.com/store/asset/104231461734810/Hitbox)
 

@@ -1,13 +1,9 @@
 local Types = {}
 
--- Packages
-local Signal = require(script.Parent.Parent.Signal)
-local Janitor = require(script.Parent.Parent.Janitor)
-
 -- Types
-export type SignalType = typeof(Signal.new())
+export type SignalType = any
 export type SignalConnection = RBXScriptConnection
-export type JanitorType = typeof(Janitor.new())
+export type JanitorType = any
 export type TimerType = any
 
 export type DotProductRequirement = {

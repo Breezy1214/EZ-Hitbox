@@ -213,6 +213,7 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 	end
 
 	table.insert(HitboxCache, self)
+	self["Destroy"] = self.Destroy
 
 	return self, true
 end
@@ -793,10 +794,12 @@ function Hitbox:Destroy()
 	self.TaggedObjects = {}
 	self.SendingObjects = {}
 
-	-- Cleanup all resources with janitor
-	if self._janitor then
+	if self._janitor and not self._janitor.CurrentlyCleaning then
 		self._janitor:Destroy()
+		self._janitor = nil
 	end
+
+	setmetatable(self, nil)
 end
 
 return Hitbox
