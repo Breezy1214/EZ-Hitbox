@@ -89,7 +89,7 @@ local Hitbox = require(path.to.Hitbox)
 
 -- Create a simple sword slash hitbox
 local hitbox = Hitbox.new({
-    InitialCFrame = character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3),
+    InitialCframe = character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3),
     SizeOrPart = Vector3.new(8, 8, 4),
     LifeTime = 0.5,
     DebounceTime = 1.0,
@@ -181,7 +181,7 @@ local Hitbox = require(path.to.Hitbox)
 
 -- Create hitbox for a moving projectile
 local hitbox = Hitbox.new({
-    InitialCFrame = weapon.CFrame,
+    InitialCframe = weapon.CFrame,
     SizeOrPart = Vector3.new(2, 2, 6),
     VelocityPrediction = true,
     LifeTime = 3.0,
@@ -216,7 +216,7 @@ Only hit targets in front of the attacker:
 local Hitbox = require(path.to.Hitbox)
 
 local hitbox = Hitbox.new({
-    InitialCFrame = character.HumanoidRootPart.CFrame,
+    InitialCframe = character.HumanoidRootPart.CFrame,
     SizeOrPart = Vector3.new(10, 6, 8),
     DotProductRequirement = {
         PartForVector = character.HumanoidRootPart,
@@ -251,7 +251,7 @@ Creates a new hitbox instance with the specified configuration.
 |-----------|------|---------|-------------|
 | `SizeOrPart` | `Vector3 \| number \| BasePart` | Required | Hitbox dimensions, radius, or reference part |
 | `SpatialOption` | `"InBox" \| "InRadius" \| "InPart"` | Auto-detected | Detection method |
-| `InitialCFrame` | `CFrame` | `CFrame.new()` | Starting position and orientation |
+| `InitialCframe` | `CFrame` | `CFrame.new()` | Starting position and orientation |
 | `Blacklist` | `{ Model }` | `{}` | Model instances to exclude |
 | `DebounceTime` | `number` | `0` | Cooldown between hitting same target |
 | `DotProductRequirement` | `DotProductRequirement` | `nil` | Directional hit filtering |
@@ -265,7 +265,7 @@ Creates a new hitbox instance with the specified configuration.
 **Example:**
 ```lua
 local hitbox = Hitbox.new({
-    InitialCFrame = workspace.Part.CFrame,
+    InitialCframe = workspace.Part.CFrame,
     SizeOrPart = Vector3.new(10, 10, 10),
     LifeTime = 5,
     Debug = true
@@ -442,7 +442,7 @@ Use dot product requirements to limit hits to specific directions (e.g., only hi
 
 ```lua
 local hitbox = Hitbox.new({
-    InitialCFrame = character.HumanoidRootPart.CFrame,
+    InitialCframe = character.HumanoidRootPart.CFrame,
     SizeOrPart = Vector3.new(10, 6, 8),
     DotProductRequirement = {
         PartForVector = character.HumanoidRootPart,
