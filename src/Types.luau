@@ -1,10 +1,13 @@
 local Types = {}
 
+-- Packages
+local Signal = require(script.Parent.Packages.Signal)
+local Timer = require(script.Parent.Packages.Timer)
+local Janitor = require(script.Parent.Packages.Janitor)
+
 -- Types
-export type SignalType = any
-export type SignalConnection = RBXScriptConnection
-export type JanitorType = any
-export type TimerType = any
+export type JanitorType = typeof(Janitor.new())
+export type TimerType = typeof(Timer.new())
 
 export type DotProductRequirement = {
 	DotProduct: number,
@@ -37,11 +40,17 @@ export type HitboxParams = {
 	-- Private fields
 	_Tick: number?,
 }
-
+type Character = Model&{
+	Humanoid:Humanoid&{Animator:Animator},PrimaryPart:Part,HumanoidRootPart:Part,
+	--R6
+	Torso:Part,["Left Arm"]:Part,["Right Arm"]:Part,["Left Leg"]:Part,["Right Leg"]:Part,
+	--R15
+	UpperTorso:Part,LowerTorso:Part,["LeftUpperArm"]:Part,["LeftLowerArm"]:Part,["RightUpperArm"]:Part,["RightLowerArm"]:Part,
+	["LeftUpperLeg"]:Part,["LeftLowerLeg"]:Part,["RightUpperLeg"]:Part,["RightLowerLeg"]:Part
+}
 export type Hitbox = {
 
 	-- Fields
-	__index: Hitbox,
 
 	Size: Vector3 | number,
 	Mode: "Magnitude" | "Part",
@@ -58,10 +67,10 @@ export type Hitbox = {
 	Blacklist: {}?,
 	SendingChars: { Model },
 	SendingObjects: { BasePart },
-	OnHit: SignalType,
-	HitObject: SignalType,
-	OnHitWithPoint: SignalType,
-	HitObjectWithPoint: SignalType,
+	OnHit: Signal.Signal<{Character}>,
+	HitObject: Signal.Signal<BasePart>,
+	OnHitWithPoint: Signal.Signal<{HitPointData}>,
+	HitObjectWithPoint: Signal.Signal<{HitPointData}>,
 	DetectHitPoints: boolean,
 	RunServiceConnection: RBXScriptConnection?,
 	PartWeld: BasePart?,
