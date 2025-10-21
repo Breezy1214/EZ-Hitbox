@@ -1,9 +1,9 @@
 local Types = {}
 
 -- Packages
-local Signal = require(script.Parent.Packages.Signal)
-local Timer = require(script.Parent.Packages.Timer)
-local Janitor = require(script.Parent.Packages.Janitor)
+local Signal = require(script.Parent.Parent.Signal)
+local Timer = require(script.Parent.Parent.Timer)
+local Janitor = require(script.Parent.Parent.Janitor)
 
 -- Types
 export type JanitorType = typeof(Janitor.new())
