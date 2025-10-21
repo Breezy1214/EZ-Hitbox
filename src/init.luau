@@ -800,23 +800,25 @@ function Hitbox:_GeneratePart()
 end
 
 function Hitbox:Destroy()
+	if self._destroyed then
+		return
+	end
+	self._destroyed = true
+	
 	-- Remove the hitbox from the cache
 	local index = table.find(HitboxCache, self)
 	if index then
 		table.remove(HitboxCache, index)
 	end
 
-	self.TaggedChars = {}
-	self.SendingChars = {}
-	self.TaggedObjects = {}
-	self.SendingObjects = {}
-
 	if self._janitor and not self._janitor.CurrentlyCleaning then
 		self._janitor:Destroy()
 		self._janitor = nil
 	end
 
+	table.clear(self)
 	setmetatable(self, nil)
+	self = nil
 end
 
 return Hitbox
