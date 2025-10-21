@@ -191,7 +191,7 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 
 		assert(
 			self.SpatialOption ~= Constants.SPATIAL_OPTION.IN_RADIUS,
-			"You can't use InRadius as the SpatialOption if a Vector3 is passed! Only InPart and InBox! (HitboxClass)"
+			"[EZ-Hitbox] You can't use InRadius as the SpatialOption if a Vector3 is passed! Only InPart and InBox!"
 		)
 
 		self.Mode = Constants.HITBOX_MODE.PART
@@ -226,7 +226,7 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 
 		assert(self.Part, "No part provided?")
 
-		assert(self.Part and self.Part:IsA("Part"), "Part provided wasn't a part! (HitboxClass)")
+		assert(self.Part and self.Part:IsA("Part"), "[EZ-Hitbox] Part provided wasn't a part!")
 
 		self.Part.Color = Constants.DEBUG_PART.COLOR
 		self.Part.Name = "Hitbox" .. self.TickVal
@@ -775,8 +775,8 @@ function Hitbox:_GeneratePart()
 	elseif type(self.Size) == "number" then
 		self.Part = self._janitor:Add(Instance.new("Part"))
 
-		assert(self.Part and self.Part:IsA("Part"), "Part provided wasn't a part! (HitboxClass)")
-		assert(typeof(self.Size) == "number", "self.Size wasn't a number when making a sphere part!") -- you shouldn't get here, but just in case
+		assert(self.Part and self.Part:IsA("Part"), "[EZ-Hitbox] Part provided wasn't a part!")
+		assert(typeof(self.Size) == "number", "[EZ-Hitbox] self.Size wasn't a number when making a sphere part!") -- you shouldn't get here, but just in case
 
 		self.Part.Shape = Enum.PartType.Ball
 		self.Part.Anchored = true
