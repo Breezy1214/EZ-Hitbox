@@ -1,6 +1,6 @@
 # 🎯 EZ Hitbox
 
-[![Wally](https://img.shields.io/badge/Wally-4.0.2-blue)](https://wally.run/package/breezy1214/hitbox?version=4.0.2)
+[![Wally](https://img.shields.io/badge/Wally-4.1.0-blue)](https://wally.run/package/breezy1214/hitbox?version=4.1.0)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Roblox](https://img.shields.io/badge/Platform-Roblox-00A2FF)](https://create.roblox.com/store/asset/104231461734810/Hitbox)
 
@@ -23,18 +23,21 @@ A flexible, high-performance hitbox system for Roblox games with advanced featur
 ## 🚀 Installation
 
 ### Wally (Recommended)
+
 ```toml
 [dependencies]
-Hitbox = "breezy1214/hitbox@4.0.1"
+Hitbox = "breezy1214/hitbox@4.1.0"
 ```
 
 ### Manual Installation
+
 1. Download the latest release from the GitHub repository
 2. Place the module in your game's ReplicatedStorage
 
 ## ✨ Features
 
 ### Core Functionality
+
 - 🎯 **Universal hit detection** - Works identically on server and client
 - 🔍 **Precise hit point detection** - Get exact collision positions, normals, and materials
 - 📐 **Multiple hitbox shapes** - Support for box, sphere, and custom part shapes
@@ -43,6 +46,7 @@ Hitbox = "breezy1214/hitbox@4.0.1"
 - 🐛 **Visual debugging** - See your hitboxes in real-time
 
 ### Advanced Features
+
 - ⚡ **High performance** - Optimized spatial queries and caching
 - ⏱️ **Configurable parameters** - Debounce time, lifetime, and more
 - 🚫 **Blacklist support** - Exclude specific instances from detection
@@ -55,6 +59,8 @@ Hitbox = "breezy1214/hitbox@4.0.1"
 ### Required Configuration
 
 To use EZ Hitbox, you need to set up a configuration folder in ReplicatedStorage:
+
+> ⚠️ Warning: If no `HitboxSettings` configuration folder is present in ReplicatedStorage, the module will automatically create configuration folders under `workspace`. You must populate the created folder with the character models (instances containing `Humanoid`) that you want the hitbox system to detect.
 
 1. **Create the Settings Folder**
    - Create a folder named `HitboxSettings` in ReplicatedStorage
@@ -75,8 +81,6 @@ ReplicatedStorage/
     ├── Ignore Folder (ObjectValue) → workspace.Debris
     └── Velocity Constant (NumberValue) = 6
 ```
-
-
 
 ## 📚 Usage Examples
 
@@ -263,6 +267,7 @@ Creates a new hitbox instance with the specified configuration.
 | `DetectHitPoints` | `boolean` | `false` | Enable precise hit locations |
 
 **Example:**
+
 ```lua
 local hitbox = Hitbox.new({
     InitialCframe = workspace.Part.CFrame,
@@ -291,6 +296,7 @@ Updates the hitbox position and orientation.
 Attaches the hitbox to a part with optional offset. The hitbox will follow the part's movement.
 
 **Parameters:**
+
 - `part`: The part to attach to
 - `offset`: Optional CFrame offset from the part
 
@@ -319,10 +325,12 @@ Clears the internal list of recently hit characters, allowing them to be hit aga
 Returns what's currently inside the hitbox. This method provides an immediate snapshot of all detected targets based on the hitbox's `LookingFor` setting.
 
 **Returns:**
+
 - Array of `Model` instances (characters) if `LookingFor = "Humanoid"`
 - Array of `BasePart` instances if `LookingFor = "Object"`
 
 **Example:**
+
 ```lua
 local hitbox = Hitbox.new({
     SizeOrPart = Vector3.new(10, 10, 10),
@@ -455,6 +463,7 @@ local hitbox = Hitbox.new({
 ```
 
 **Dot Product Values:**
+
 - `1.0` = Exactly the same direction (0° angle)
 - `0.7` = ~45° cone
 - `0.5` = ~60° cone  
@@ -540,6 +549,7 @@ hitbox:EnableVelocityPrediction(true)
 **Problem**: Hitbox isn't detecting any targets
 
 **Solutions**:
+
 - ✅ Verify targets are in the correct `Alive Folder` (check HitboxSettings)
 - ✅ Ensure the hitbox is started with `:Start()`
 - ✅ Check that `SpatialOption` matches your `SizeOrPart` type
@@ -551,6 +561,7 @@ hitbox:EnableVelocityPrediction(true)
 **Problem**: Game lagging when using hitboxes
 
 **Solutions**:
+
 - ✅ Reduce hitbox sizes or use more efficient `SpatialOption`
 - ✅ Implement proper cleanup with `:Destroy()`
 - ✅ Monitor hitbox cache with `GetHitboxCache()`
@@ -562,6 +573,7 @@ hitbox:EnableVelocityPrediction(true)
 **Problem**: `OnHitWithPoint` events not firing
 
 **Solutions**:
+
 - ✅ Ensure `DetectHitPoints = true` is set in hitbox parameters
 - ✅ Verify you're connecting to the correct event (`OnHitWithPoint` vs `OnHit`)
 - ✅ Check that targets have proper collision geometry
@@ -572,15 +584,16 @@ hitbox:EnableVelocityPrediction(true)
 **Problem**: Dot product requirements not working as expected
 
 **Solutions**:
+
 - ✅ Verify `PartForVector` is pointing in the correct direction
 - ✅ Adjust `DotProduct` value (try 0.5 for ~60° cone)
 - ✅ Check if `Negative` parameter needs to be toggled
 - ✅ Use debug mode to visualize hitbox orientation
 
-
 ### Reporting Bugs
 
 When reporting issues, please include:
+
 - Expected vs actual behavior
 - Any error messages from the console
 - Steps to reproduce the issue
