@@ -5,33 +5,39 @@ local Constants = require(script.Constants)
 
 -- Module setup and configuration
 local moduleSettings = ReplicatedStorage:WaitForChild(Constants.SETTINGS_FOLDER_NAME, 3)
-assert(moduleSettings, "HitboxClass settings not found! Make sure the HitboxSettings Folder is in ReplicatedStorage!")
+if not moduleSettings then
+	moduleSettings = Instance.new("Folder")
+	moduleSettings.Name = Constants.SETTINGS_FOLDER_NAME
+	moduleSettings.Parent = ReplicatedStorage
+	warn("Hitbox settings folder not found! A new one has been created in ReplicatedStorage.")
+end
 
--- Initial error checking for Alive Folder
-assert(
-	moduleSettings:FindFirstChild(Constants.ALIVE_FOLDER_SETTING_NAME),
-	"No Alive Folder setting found in HitboxClass settings! Make an object value and name it 'Alive Folder' and parent it there!"
-)
+local aliveObject = moduleSettings:FindFirstChild(Constants.ALIVE_FOLDER_SETTING_NAME)
+local aliveFolder = aliveObject and aliveObject.Value
+if not aliveFolder then
+	aliveFolder = Instance.new("Folder")
+	aliveFolder.Name = Constants.ALIVE_FOLDER_SETTING_NAME
+	aliveFolder.Parent = workspace
+	warn("Alive Folder setting not found! A new folder has been created in workspace.")
+	warn("Please ensure to populate this folder with the characters/models you want the Hitbox module to detect.")
+end
 
-local aliveFolder = moduleSettings[Constants.ALIVE_FOLDER_SETTING_NAME].Value
-
--- Initial error checking for Ignore Folder
-assert(
-	moduleSettings:FindFirstChild(Constants.IGNORE_FOLDER_SETTING_NAME),
-	"No Ignore Folder setting found in HitboxClass settings! Make an object value and name it 'Ignore Folder' and parent it there!"
-)
-
-local ignoreFolder = moduleSettings[Constants.IGNORE_FOLDER_SETTING_NAME].Value
+local ignoreObject = moduleSettings:FindFirstChild(Constants.IGNORE_FOLDER_SETTING_NAME)
+local ignoreFolder = ignoreObject and ignoreObject.Value
+if not ignoreFolder then
+	ignoreFolder = Instance.new("Folder")
+	ignoreFolder.Name = Constants.IGNORE_FOLDER_SETTING_NAME
+	ignoreFolder.Parent = workspace
+	warn("Ignore Folder setting not found! A new folder has been created in workspace.")
+end
 
 -- Get velocity constant setting
 local velocityConstant = moduleSettings:FindFirstChild(Constants.VELOCITY_CONSTANT_SETTING_NAME)
 
 if not velocityConstant then
-	warn("Velocity Constant Setting has been deleted! 6 will be used as a default. (HitboxClass)")
+	warn("Velocity Constant Setting does not exist! 6 will be used as a default. (HitboxClass)")
 end
 
-assert(aliveFolder ~= nil, "Set the alive characters folder in the HitboxClass settings!")
-assert(ignoreFolder ~= nil, "Set the Ignore folder in the HitboxClass settings!")
 assert(aliveFolder:IsDescendantOf(workspace), "The alive folder must be a descendant of workspace! (HitboxClass)")
 assert(ignoreFolder:IsDescendantOf(workspace), "The Ignore folder must be a descendant of workspace! (HitboxClass)")
 
@@ -86,12 +92,9 @@ end
 
 -- Helper function to get hit point data for character
 local function GetCharacterHitPointData(hitboxCFrame: CFrame, character: Model): Types.HitPointData?
-	if not character.PrimaryPart then
-		return nil
-	end
-
+	local pivot = character:GetPivot()
 	local rayOrigin = hitboxCFrame.Position
-	local rayDirection = (character.PrimaryPart.Position - rayOrigin).Unit * 100
+	local rayDirection = (pivot.Position - rayOrigin).Unit * 100
 
 	local raycastParams = RaycastParams.new()
 	raycastParams.FilterType = Enum.RaycastFilterType.Include
@@ -235,12 +238,9 @@ function Hitbox:GetParts()
 		end
 
 		for _, Character: Instance in pairs(aliveFolder:GetChildren()) do
-			if
-				Character:IsA("Model")
-				and Character.PrimaryPart ~= nil
-				and Character:FindFirstChildOfClass("Humanoid")
-			then
-				local magnitude = (self.CFrame.Position - Character.PrimaryPart.Position).Magnitude
+			if Character:IsA("Model") and Character:FindFirstChildOfClass("Humanoid") then
+				local pivot = Character:GetPivot()
+				local magnitude = (self.CFrame.Position - pivot.Position).Magnitude
 
 				if magnitude <= self.Size then
 					if self.Blacklist and table.find(self.Blacklist, Character) then
@@ -250,8 +250,7 @@ function Hitbox:GetParts()
 					-- Check dot product if required
 					if self.DotProductRequirement then
 						local VectorToCompare = (
-							Character.PrimaryPart.CFrame.Position
-							- self.DotProductRequirement.PartForVector.CFrame.Position
+							pivot.Position - self.DotProductRequirement.PartForVector.CFrame.Position
 						).Unit
 
 						local VectorOfUser: Vector3
@@ -313,11 +312,7 @@ function Hitbox:GetParts()
 			if self.LookingFor == Constants.LOOKING_FOR.HUMANOID then
 				local character = part.Parent
 
-				if
-					not character:IsA("Model")
-					or character.PrimaryPart == nil
-					or not character:FindFirstChildOfClass("Humanoid")
-				then
+				if not character:IsA("Model") or not character:FindFirstChildOfClass("Humanoid") then
 					continue
 				end
 
@@ -389,12 +384,9 @@ function Hitbox:Start()
 			-- go through the alive folder
 			for _, Character: Instance in pairs(aliveFolder:GetChildren()) do
 				-- check to see if it's a model with a primary part that also has a humanoid
-				if
-					Character:IsA("Model")
-					and Character.PrimaryPart ~= nil
-					and Character:FindFirstChildOfClass("Humanoid")
-				then
-					local magnitude = (self.CFrame.Position - Character.PrimaryPart.Position).Magnitude
+				if Character:IsA("Model") and Character:FindFirstChildOfClass("Humanoid") then
+					local pivot = Character:GetPivot()
+					local magnitude = (self.CFrame.Position - pivot.Position).Magnitude
 
 					-- if they're greater than the distance of the hitbox, skip them
 					if magnitude > self.Size then
@@ -411,8 +403,7 @@ function Hitbox:Start()
 					-- check the dot product if one is given
 					if self.DotProductRequirement then
 						local VectorToCompare = (
-							Character.PrimaryPart.CFrame.Position
-							- self.DotProductRequirement.PartForVector.CFrame.Position
+							pivot.Position - self.DotProductRequirement.PartForVector.CFrame.Position
 						).Unit
 
 						local VectorOfUser: Vector3
@@ -493,11 +484,7 @@ function Hitbox:Start()
 				if self.LookingFor == "Humanoid" then
 					local character = part.Parent
 
-					if
-						not character:IsA("Model")
-						or character.PrimaryPart == nil
-						or not character:FindFirstChildOfClass("Humanoid")
-					then
+					if not character:IsA("Model") or not character:FindFirstChildOfClass("Humanoid") then
 						continue
 					end
 
