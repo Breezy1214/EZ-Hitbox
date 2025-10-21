@@ -3,14 +3,22 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Constants = require(script.Constants)
 
+local moduleSettings = ReplicatedStorage:FindFirstChild(Constants.SETTINGS_FOLDER_NAME)
+
 local function debugLog(...)
+	local debug = moduleSettings:FindFirstChild("Debug")
+	local notEnabled = debug and debug.Value == false
+
+	if notEnabled then
+		return
+	end
+
 	if Constants.DebugLog then
 		warn("[EZ-Hitbox Debug]: ", ...)
 	end
 end
 
 -- Module setup and configuration
-local moduleSettings = ReplicatedStorage:FindFirstChild(Constants.SETTINGS_FOLDER_NAME)
 if not moduleSettings then
 	moduleSettings = Instance.new("Folder")
 	moduleSettings.Name = Constants.SETTINGS_FOLDER_NAME
@@ -23,7 +31,7 @@ if not moduleSettings then
 end
 
 local aliveObject = moduleSettings:FindFirstChild(Constants.ALIVE_FOLDER_SETTING_NAME)
-local aliveFolder = aliveObject and aliveObject.Value
+local aliveFolder = aliveObject and aliveObject.Value or workspace:FindFirstChild(Constants.ALIVE_FOLDER_SETTING_NAME)
 if not aliveFolder then
 	aliveFolder = Instance.new("Folder")
 	aliveFolder.Name = Constants.ALIVE_FOLDER_SETTING_NAME
@@ -41,6 +49,7 @@ end
 
 local ignoreObject = moduleSettings:FindFirstChild(Constants.IGNORE_FOLDER_SETTING_NAME)
 local ignoreFolder = ignoreObject and ignoreObject.Value
+	or workspace:FindFirstChild(Constants.IGNORE_FOLDER_SETTING_NAME)
 if not ignoreFolder then
 	ignoreFolder = Instance.new("Folder")
 	ignoreFolder.Name = Constants.IGNORE_FOLDER_SETTING_NAME
@@ -804,7 +813,7 @@ function Hitbox:Destroy()
 		return
 	end
 	self._destroyed = true
-	
+
 	-- Remove the hitbox from the cache
 	local index = table.find(HitboxCache, self)
 	if index then
