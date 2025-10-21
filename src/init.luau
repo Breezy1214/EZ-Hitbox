@@ -145,6 +145,10 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 
 	self._janitor = Janitor.new()
 
+	self._janitor:Add(function()
+		self:Destroy()
+	end)
+
 	self.TaggedChars = {}
 	self.TaggedObjects = {}
 	self.SendingChars = {}
@@ -240,6 +244,11 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 	self["Destroy"] = self.Destroy
 
 	return self, true
+end
+
+function Hitbox:LinkToInstance(instance: Instance)
+	assert(instance, "[EZ-Hitbox] No instance provided to link to!")
+	self._janitor:LinkToInstance(instance)
 end
 
 function Hitbox:ClearTaggedCharacters()
@@ -791,23 +800,25 @@ function Hitbox:_GeneratePart()
 end
 
 function Hitbox:Destroy()
+	if self._destroyed then
+		return
+	end
+	self._destroyed = true
+	
 	-- Remove the hitbox from the cache
 	local index = table.find(HitboxCache, self)
 	if index then
 		table.remove(HitboxCache, index)
 	end
 
-	self.TaggedChars = {}
-	self.SendingChars = {}
-	self.TaggedObjects = {}
-	self.SendingObjects = {}
-
 	if self._janitor and not self._janitor.CurrentlyCleaning then
 		self._janitor:Destroy()
 		self._janitor = nil
 	end
 
+	table.clear(self)
 	setmetatable(self, nil)
+	self = nil
 end
 
 return Hitbox

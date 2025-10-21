@@ -1,6 +1,6 @@
 # 🎯 EZ Hitbox
 
-[![Wally](https://img.shields.io/badge/Wally-4.1.1-blue)](https://wally.run/package/breezy1214/hitbox?version=4.1.1)
+[![Wally](https://img.shields.io/badge/Wally-4.1.2-blue)](https://wally.run/package/breezy1214/hitbox?version=4.1.2)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Roblox](https://img.shields.io/badge/Platform-Roblox-00A2FF)](https://create.roblox.com/store/asset/104231461734810/Hitbox)
 
@@ -26,7 +26,7 @@ A flexible, high-performance hitbox system for Roblox games with advanced featur
 
 ```toml
 [dependencies]
-Hitbox = "breezy1214/hitbox@4.1.1"
+Hitbox = "breezy1214/hitbox@4.1.2"
 ```
 
 ### Manual Installation
@@ -286,6 +286,10 @@ Activates the hitbox for hit detection.
 #### `Hitbox:Stop() -> void`
 
 Temporarily pauses hit detection without destroying the hitbox.
+
+#### `Hitbox:LinkToInstance(instance: Instance) -> void`
+
+Links the hitbox's lifecycle to an instance. When the linked instance is destroyed, the hitbox will automatically clean up and destroy itself. This is useful for tying hitboxes to weapons, projectiles, or other temporary game objects.
 
 #### `Hitbox:SetCFrame(newCFrame: CFrame) -> void`
 

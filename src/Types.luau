@@ -40,13 +40,27 @@ export type HitboxParams = {
 	-- Private fields
 	_Tick: number?,
 }
-type Character = Model&{
-	Humanoid:Humanoid&{Animator:Animator},PrimaryPart:Part,HumanoidRootPart:Part,
+type Character = Model & {
+	Humanoid: Humanoid & { Animator: Animator },
+	PrimaryPart: Part,
+	HumanoidRootPart: Part,
 	--R6
-	Torso:Part,["Left Arm"]:Part,["Right Arm"]:Part,["Left Leg"]:Part,["Right Leg"]:Part,
+	Torso: Part,
+	["Left Arm"]: Part,
+	["Right Arm"]: Part,
+	["Left Leg"]: Part,
+	["Right Leg"]: Part,
 	--R15
-	UpperTorso:Part,LowerTorso:Part,["LeftUpperArm"]:Part,["LeftLowerArm"]:Part,["RightUpperArm"]:Part,["RightLowerArm"]:Part,
-	["LeftUpperLeg"]:Part,["LeftLowerLeg"]:Part,["RightUpperLeg"]:Part,["RightLowerLeg"]:Part
+	UpperTorso: Part,
+	LowerTorso: Part,
+	["LeftUpperArm"]: Part,
+	["LeftLowerArm"]: Part,
+	["RightUpperArm"]: Part,
+	["RightLowerArm"]: Part,
+	["LeftUpperLeg"]: Part,
+	["LeftLowerLeg"]: Part,
+	["RightUpperLeg"]: Part,
+	["RightLowerLeg"]: Part,
 }
 export type Hitbox = {
 
@@ -67,10 +81,10 @@ export type Hitbox = {
 	Blacklist: {}?,
 	SendingChars: { Model },
 	SendingObjects: { BasePart },
-	OnHit: Signal.Signal<{Character}>,
+	OnHit: Signal.Signal<{ Character }>,
 	HitObject: Signal.Signal<BasePart>,
-	OnHitWithPoint: Signal.Signal<{HitPointData}>,
-	HitObjectWithPoint: Signal.Signal<{HitPointData}>,
+	OnHitWithPoint: Signal.Signal<{ HitPointData }>,
+	HitObjectWithPoint: Signal.Signal<{ HitPointData }>,
 	DetectHitPoints: boolean,
 	RunServiceConnection: RBXScriptConnection?,
 	PartWeld: BasePart?,
@@ -79,10 +93,12 @@ export type Hitbox = {
 	DebugMode: boolean,
 	Lifetime: number,
 	_janitor: JanitorType,
+	_destroyed: boolean?,
 
 	-- Methods
 
 	new: (HitboxParams) -> (Hitbox, boolean),
+	LinkToInstance: (self: Hitbox, instance: Instance) -> (),
 	ClearHitboxesByID: (ID: string | number) -> (),
 	GetHitboxCache: () -> { Hitbox },
 	ClearTaggedCharacters: (self: Hitbox) -> (),
