@@ -3,13 +3,23 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Constants = require(script.Constants)
 
+local function debugLog(...)
+	if Constants.DebugLog then
+		warn("[EZ-Hitbox Debug]: ", ...)
+	end
+end
+
 -- Module setup and configuration
-local moduleSettings = ReplicatedStorage:WaitForChild(Constants.SETTINGS_FOLDER_NAME, 3)
+local moduleSettings = ReplicatedStorage:FindFirstChild(Constants.SETTINGS_FOLDER_NAME)
 if not moduleSettings then
 	moduleSettings = Instance.new("Folder")
 	moduleSettings.Name = Constants.SETTINGS_FOLDER_NAME
 	moduleSettings.Parent = ReplicatedStorage
-	warn("Hitbox settings folder not found! A new one has been created in ReplicatedStorage.")
+	debugLog(
+		"Hitbox settings folder not found! A new one has been created in ReplicatedStorage.",
+		"Instance found at:",
+		moduleSettings
+	)
 end
 
 local aliveObject = moduleSettings:FindFirstChild(Constants.ALIVE_FOLDER_SETTING_NAME)
@@ -18,8 +28,15 @@ if not aliveFolder then
 	aliveFolder = Instance.new("Folder")
 	aliveFolder.Name = Constants.ALIVE_FOLDER_SETTING_NAME
 	aliveFolder.Parent = workspace
-	warn("Alive Folder setting not found! A new folder has been created in workspace.")
-	warn("Please ensure to populate this folder with the characters/models you want the Hitbox module to detect.")
+	debugLog(
+		"Alive Folder setting not found! A new folder has been created in workspace.",
+		"Instance found at:",
+		aliveFolder
+	)
+	if Constants.DebugLog then
+		print("")
+	end
+	debugLog("Please ensure to populate this folder with the characters/models you want the Hitbox module to detect.")
 end
 
 local ignoreObject = moduleSettings:FindFirstChild(Constants.IGNORE_FOLDER_SETTING_NAME)
@@ -28,18 +45,22 @@ if not ignoreFolder then
 	ignoreFolder = Instance.new("Folder")
 	ignoreFolder.Name = Constants.IGNORE_FOLDER_SETTING_NAME
 	ignoreFolder.Parent = workspace
-	warn("Ignore Folder setting not found! A new folder has been created in workspace.")
+	debugLog(
+		"Ignore Folder setting not found! A new folder has been created in workspace.",
+		"Instance found at:",
+		ignoreFolder
+	)
 end
 
 -- Get velocity constant setting
 local velocityConstant = moduleSettings:FindFirstChild(Constants.VELOCITY_CONSTANT_SETTING_NAME)
 
 if not velocityConstant then
-	warn("Velocity Constant Setting does not exist! 6 will be used as a default. (HitboxClass)")
+	debugLog("Velocity Constant Setting does not exist! 6 will be used as a default.")
 end
 
-assert(aliveFolder:IsDescendantOf(workspace), "The alive folder must be a descendant of workspace! (HitboxClass)")
-assert(ignoreFolder:IsDescendantOf(workspace), "The Ignore folder must be a descendant of workspace! (HitboxClass)")
+assert(aliveFolder:IsDescendantOf(workspace), "[EZ-Hitbox Debug] The alive folder must be a descendant of workspace!")
+assert(ignoreFolder:IsDescendantOf(workspace), "[EZ-Hitbox Debug] The Ignore folder must be a descendant of workspace!")
 
 -- now we initialize the class
 local Types = require(script.Types)

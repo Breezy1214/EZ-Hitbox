@@ -6,6 +6,7 @@ Constants.SETTINGS_FOLDER_NAME = "HitboxSettings"
 Constants.ALIVE_FOLDER_SETTING_NAME = "Alive Folder"
 Constants.IGNORE_FOLDER_SETTING_NAME = "Ignore Folder"
 Constants.VELOCITY_CONSTANT_SETTING_NAME = "Velocity Prediction Constant"
+Constants.DebugLog = true
 
 -- Default values
 Constants.DEFAULT_VELOCITY_CONSTANT = 6
