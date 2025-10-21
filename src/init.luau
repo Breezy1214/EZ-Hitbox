@@ -145,6 +145,10 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 
 	self._janitor = Janitor.new()
 
+	self._janitor:Add(function()
+		self:Destroy()
+	end)
+
 	self.TaggedChars = {}
 	self.TaggedObjects = {}
 	self.SendingChars = {}
@@ -240,6 +244,11 @@ function Hitbox.new(HitboxParams: Types.HitboxParams)
 	self["Destroy"] = self.Destroy
 
 	return self, true
+end
+
+function Hitbox:LinkToInstance(instance: Instance)
+	assert(instance, "[EZ-Hitbox] No instance provided to link to!")
+	self._janitor:LinkToInstance(instance)
 end
 
 function Hitbox:ClearTaggedCharacters()

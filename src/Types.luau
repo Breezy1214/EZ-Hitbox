@@ -83,6 +83,7 @@ export type Hitbox = {
 	-- Methods
 
 	new: (HitboxParams) -> (Hitbox, boolean),
+	LinkToInstance: (self: Hitbox, instance: Instance) -> (),
 	ClearHitboxesByID: (ID: string | number) -> (),
 	GetHitboxCache: () -> { Hitbox },
 	ClearTaggedCharacters: (self: Hitbox) -> (),
