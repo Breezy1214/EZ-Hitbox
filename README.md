@@ -8,19 +8,19 @@ A flexible, high-performance hitbox system for Roblox games with advanced featur
 
 ## 📋 Table of Contents
 
-- [🚀 Installation](#-installation)
-- [✨ Features](#-features)
-- [⚙️ Setup](#️-setup)
-- [📚 Usage Examples](#-usage-examples)
-- [📖 API Reference](#-api-reference)
-- [🎯 Hit Point Detection](#-hit-point-detection)
-- [⚡ Advanced Configuration](#-advanced-configuration)
-- [💡 Tips and Best Practices](#-tips-and-best-practices)
-- [🛠️ Troubleshooting](#️-troubleshooting)
-- [🤝 Contributing](#-contributing)
-- [📄 License](#-license)
+- [Installation](#-installation)
+- [Features](#-features)
+- [Setup](#️-setup)
+- [Usage Examples](#-usage-examples)
+- [API Reference](#-api-reference)
+- [Hit Point Detection](#-hit-point-detection)
+- [Advanced Configuration](#-advanced-configuration)
+- [Tips and Best Practices](#-tips-and-best-practices)
+- [Troubleshooting](#️-troubleshooting)
+- [Contributing](#-contributing)
+- [License](#-license)
 
-## 🚀 Installation
+## Installation
 
 ### Wally (Recommended)
 
@@ -34,27 +34,27 @@ Hitbox = "breezy1214/hitbox@4.1.3"
 1. Download the latest release from the GitHub repository
 2. Place the module in your game's ReplicatedStorage
 
-## ✨ Features
+## Features
 
 ### Core Functionality
 
-- 🎯 **Universal hit detection** - Works identically on server and client
-- 🔍 **Precise hit point detection** - Get exact collision positions, normals, and materials
-- 📐 **Multiple hitbox shapes** - Support for box, sphere, and custom part shapes
-- 👤 **Flexible target detection** - Detect humanoids, objects, or both
-- 🚀 **Velocity prediction** - Compensate for fast-moving hitboxes
-- 🐛 **Visual debugging** - See your hitboxes in real-time
+- **Universal hit detection** - Works identically on server and client
+- **Precise hit point detection** - Get exact collision positions, normals, and materials
+- **Multiple hitbox shapes** - Support for box, sphere, and custom part shapes
+- **Flexible target detection** - Detect humanoids, objects, or both
+- **Velocity prediction** - Compensate for fast-moving hitboxes
+- **Visual debugging** - See your hitboxes in real-time
 
 ### Advanced Features
 
-- ⚡ **High performance** - Optimized spatial queries and caching
-- ⏱️ **Configurable parameters** - Debounce time, lifetime, and more
-- 🚫 **Blacklist support** - Exclude specific instances from detection
-- 📡 **Signal-based events** - Clean, reactive hit detection system
-- 🔧 **Proper cleanup** - Automatic memory management and resource cleanup
-- 🎮 **Easy integration** - Simple API that works with any Roblox game
+- **High performance** - Optimized spatial queries and caching
+- **Configurable parameters** - Debounce time, lifetime, and more
+- **Blacklist support** - Exclude specific instances from detection
+- **Signal-based events** - Clean, reactive hit detection system
+- **Proper cleanup** - Automatic memory management and resource cleanup
+- **Easy integration** - Simple API that works with any Roblox game
 
-## ⚙️ Setup
+## Setup
 
 ### Required Configuration
 
@@ -82,9 +82,9 @@ ReplicatedStorage/
     └── Velocity Constant (NumberValue) = 6
 ```
 
-## 📚 Usage Examples
+## Usage Examples
 
-### 🟢 Basic Server-Side Hitbox
+### Basic Server-Side Hitbox
 
 Perfect for weapons, abilities, or any server-authoritative hit detection:
 
@@ -113,7 +113,7 @@ end)
 hitbox:Start()
 ```
 
-### 🔵 Basic Client-Side Hitbox
+### Basic Client-Side Hitbox
 
 Perfect for responsive visual effects and client-side feedback:
 
@@ -141,7 +141,7 @@ end)
 hitbox:Start()
 ```
 
-### 🎯 Advanced Hit Point Detection
+### Advanced Hit Point Detection
 
 Get precise hit locations for visual effects, bullet holes, or damage zones:
 
@@ -176,7 +176,7 @@ end)
 hitbox:Start()
 ```
 
-### ⚡ Moving Hitbox with Velocity Prediction
+### Moving Hitbox with Velocity Prediction
 
 For projectiles or fast-moving attacks:
 
@@ -212,7 +212,7 @@ end)
 hitbox:Start()
 ```
 
-### 🎪 Directional Hit Detection
+### Directional Hit Detection
 
 Only hit targets in front of the attacker:
 
@@ -241,7 +241,7 @@ end)
 hitbox:Start()
 ```
 
-## 📖 API Reference
+## API Reference
 
 ### Constructor
 
@@ -381,7 +381,7 @@ Fires when the hitbox detects characters with precise hit data (requires `Detect
 
 Fires when the hitbox detects objects with precise hit data (requires `DetectHitPoints = true`).
 
-## 🎯 Hit Point Detection
+## Hit Point Detection
 
 Hit point detection provides exact collision positions, surface normals, and material information. This feature is optional and works on both server and client-side hitboxes.
 
@@ -446,7 +446,7 @@ end)
 3. **Damage Indicators**: Show floating damage numbers at precise hit locations
 4. **Environmental Interaction**: Create destruction, marks, or attachments at impact points
 
-## ⚡ Advanced Configuration
+## Advanced Configuration
 
 ### Directional Hit Detection
 
@@ -519,32 +519,32 @@ local hitbox = Hitbox.new({
 hitbox:EnableVelocityPrediction(true)
 ```
 
-## 💡 Tips and Best Practices
+## Tips and Best Practices
 
 ### Performance Optimization
 
-1. **🎯 Choose the Right Implementation**
+1. **Choose the Right Implementation**
    - Use server-side hitboxes for authoritative hit detection
    - Use client-side hitboxes for responsive visual feedback and validation
 
-2. **🚫 Use Blacklists Effectively**
+2. **Use Blacklists Effectively**
    - Always exclude the attacker from their own hitboxes
    - Blacklist debris, effects, and other non-target objects
 
-3. **📏 Size Your Hitboxes Appropriately**
+3. **Size Your Hitboxes Appropriately**
    - Smaller hitboxes = higher performance
    - Larger hitboxes = lower performance
 
 ### Combat System Design
 
-1. **⚡ Implement Proper Debouncing**
+1. **Implement Proper Debouncing**
    - Use debounce times to prevent hit spamming
 
-2. **🔄 Memory Management**
+2. **Memory Management**
    - Always call `:Destroy()` when hitboxes are no longer needed
    - Use `ClearHitboxesByID()` for bulk cleanup
 
-## 🛠️ Troubleshooting
+## Troubleshooting
 
 ### Common Issues and Solutions
 
@@ -554,11 +554,11 @@ hitbox:EnableVelocityPrediction(true)
 
 **Solutions**:
 
-- ✅ Verify targets are in the correct `Alive Folder` (check HitboxSettings)
-- ✅ Ensure the hitbox is started with `:Start()`
-- ✅ Check that `SpatialOption` matches your `SizeOrPart` type
-- ✅ Confirm targets aren't in the `Blacklist`
-- ✅ Enable `Debug = true` to visualize the hitbox
+- Verify targets are in the correct `Alive Folder` (check HitboxSettings)
+- Ensure the hitbox is started with `:Start()`
+- Check that `SpatialOption` matches your `SizeOrPart` type
+- Confirm targets aren't in the `Blacklist`
+- Enable `Debug = true` to visualize the hitbox
 
 #### ❌ Performance Issues
 
@@ -566,11 +566,11 @@ hitbox:EnableVelocityPrediction(true)
 
 **Solutions**:
 
-- ✅ Reduce hitbox sizes or use more efficient `SpatialOption`
-- ✅ Implement proper cleanup with `:Destroy()`
-- ✅ Monitor hitbox cache with `GetHitboxCache()`
-- ✅ Avoid creating too many hitboxes simultaneously
-- ✅ Use appropriate `LifeTime` values
+- Reduce hitbox sizes or use more efficient `SpatialOption`
+- Implement proper cleanup with `:Destroy()`
+- Monitor hitbox cache with `GetHitboxCache()`
+- Avoid creating too many hitboxes simultaneously
+- Use appropriate `LifeTime` values
 
 #### ❌ Hit Point Detection Not Working
 
@@ -578,10 +578,10 @@ hitbox:EnableVelocityPrediction(true)
 
 **Solutions**:
 
-- ✅ Ensure `DetectHitPoints = true` is set in hitbox parameters
-- ✅ Verify you're connecting to the correct event (`OnHitWithPoint` vs `OnHit`)
-- ✅ Check that targets have proper collision geometry
-- ✅ Test with `Debug = true` to see if basic detection works first
+- Ensure `DetectHitPoints = true` is set in hitbox parameters
+- Verify you're connecting to the correct event (`OnHitWithPoint` vs `OnHit`)
+- Check that targets have proper collision geometry
+- Test with `Debug = true` to see if basic detection works first
 
 #### ❌ Directional Detection Issues
 
@@ -589,10 +589,10 @@ hitbox:EnableVelocityPrediction(true)
 
 **Solutions**:
 
-- ✅ Verify `PartForVector` is pointing in the correct direction
-- ✅ Adjust `DotProduct` value (try 0.5 for ~60° cone)
-- ✅ Check if `Negative` parameter needs to be toggled
-- ✅ Use debug mode to visualize hitbox orientation
+- Verify `PartForVector` is pointing in the correct direction
+- Adjust `DotProduct` value (try 0.5 for ~60° cone)
+- Check if `Negative` parameter needs to be toggled
+- Use debug mode to visualize hitbox orientation
 
 ### Reporting Bugs
 
@@ -602,7 +602,7 @@ When reporting issues, please include:
 - Any error messages from the console
 - Steps to reproduce the issue
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Please follow these guidelines:
 
@@ -618,7 +618,7 @@ We welcome contributions! Please follow these guidelines:
 2. Install dependencies with Wally: `wally install`
 3. Use Rojo for syncing: `rojo serve`
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
