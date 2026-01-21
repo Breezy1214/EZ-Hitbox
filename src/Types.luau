@@ -1,13 +1,11 @@
+--!strict
 local Types = {}
 
 -- Packages
-local Signal = require(script.Parent.Parent.Signal)
-local Timer = require(script.Parent.Parent.Timer)
 local Janitor = require(script.Parent.Parent.Janitor)
 
 -- Types
 export type JanitorType = typeof(Janitor.new())
-export type TimerType = typeof(Timer.new())
 
 export type DotProductRequirement = {
 	DotProduct: number,
@@ -23,23 +21,42 @@ export type HitPointData = {
 	Material: Enum.Material,
 }
 
-export type HitboxParams = {
-	SizeOrPart: Vector3 | number | BasePart,
-	SpatialOption: ("InBox" | "InRadius" | "InPart")?,
-	InitialCframe: CFrame?,
-	Blacklist: { Model }?,
-	DebounceTime: number?,
-	DotProductRequirement: DotProductRequirement?,
-	ID: (string | number)?,
-	VelocityPrediction: boolean?,
-	Debug: boolean?,
-	LifeTime: number?,
-	LookingFor: ("Humanoid" | "Object")?,
-	DetectHitPoints: boolean?,
 
-	-- Private fields
-	_Tick: number?,
+export type HitboxParams = {
+	-- Shape definition
+	Size: (Vector3 | number)?, -- Vector3 for box, number for sphere/radius
+	Part: BasePart?, -- Use existing part's shape
+
+	-- Legacy support (deprecated, use Size instead)
+	SizeOrPart: (Vector3 | number | BasePart)?,
+	InitialCframe: CFrame?, -- Deprecated: use CFrame instead
+	LifeTime: number?, -- Deprecated: use Lifetime instead
+
+	-- Core settings 
+	CFrame: CFrame?, -- Initial position (default: CFrame.identity)
+	SpatialOption: ("InBox" | "InRadius" | "InPart" | "Magnitude")?, -- Detection method (auto-detected)
+	LookingFor: ("Humanoid" | "Object")?, -- What to detect (default: "Humanoid")
+
+	-- Filtering
+	Blacklist: { Instance }?, -- Instances to ignore
+	Tag: string?, -- Only detect instances with this CollectionService tag (optional)
+
+	-- Timing
+	DebounceTime: number?, -- Cooldown per target (default: 0)
+	Lifetime: number?, -- Auto-destroy after N seconds (default: 0 = never)
+	AutoStart: boolean?, -- Start detection immediately (default: false)
+
+	-- Features
+	Debug: boolean?, -- Show visual hitbox (default: false)
+	DetectHitPoints: boolean?, -- Enable hit position data (default: false)
+	VelocityPrediction: boolean?, -- Predict movement (default: true)
+	VelocityConstant: number?, -- Velocity prediction divisor (default: 6)
+	DotProductRequirement: DotProductRequirement?, -- Directional filtering
+
+	-- Internal
+	ID: (string | number)?, -- For batch operations
 }
+
 type Character = Model & {
 	Humanoid: Humanoid & { Animator: Animator },
 	PrimaryPart: Part,
@@ -62,63 +79,75 @@ type Character = Model & {
 	["RightUpperLeg"]: Part,
 	["RightLowerLeg"]: Part,
 }
+
 export type Hitbox = {
-
-	-- Fields
-
+	-- Public Fields
 	Size: Vector3 | number,
-	Mode: "Magnitude" | "Part",
+	CFrame: CFrame,
 	SpatialOption: "InBox" | "InRadius" | "InPart" | "Magnitude",
 	LookingFor: "Humanoid" | "Object",
 	DebounceTime: number,
 	Part: BasePart?,
-	CFrame: CFrame,
 	DotProductRequirement: DotProductRequirement?,
+	ID: (string | number)?,
+	Blacklist: { Instance }?,
+	Tag: string?,
+	VelocityPrediction: boolean,
+	VelocityConstant: number,
+	DebugMode: boolean,
+	Lifetime: number,
+	DetectHitPoints: boolean,
+
+	-- Events 
+	OnHit: any,
+	HitObject: any,
+	OnHitWithPoint: any,
+	HitObjectWithPoint: any,
+
+	-- Internal
 	TaggedChars: { [Model]: boolean },
 	TaggedObjects: { [BasePart]: boolean },
-	ID: (string | number)?,
-	TickVal: number,
-	Blacklist: {}?,
 	SendingChars: { Model },
 	SendingObjects: { BasePart },
-	OnHit: Signal.Signal<{ Character }>,
-	HitObject: Signal.Signal<BasePart>,
-	OnHitWithPoint: Signal.Signal<{ HitPointData }>,
-	HitObjectWithPoint: Signal.Signal<{ HitPointData }>,
-	DetectHitPoints: boolean,
 	RunServiceConnection: RBXScriptConnection?,
 	PartWeld: BasePart?,
 	PartWeldOffset: CFrame?,
-	VelocityPrediction: boolean?,
-	DebugMode: boolean,
-	Lifetime: number,
 	_janitor: JanitorType,
 	_destroyed: boolean?,
+	_lifetimeThread: thread?,
 
-	-- Methods
+	-- Constructor & Factory Methods
+	new: (HitboxParams) -> Hitbox,
+	sphere: (radius: number, cframe: CFrame?, params: HitboxParams?) -> Hitbox,
+	box: (size: Vector3, cframe: CFrame?, params: HitboxParams?) -> Hitbox,
+	fromPart: (part: BasePart, params: HitboxParams?) -> Hitbox,
 
-	new: (HitboxParams) -> (Hitbox, boolean),
-	LinkToInstance: (self: Hitbox, instance: Instance) -> (),
-	ClearHitboxesByID: (ID: string | number) -> (),
-	GetHitboxCache: () -> { Hitbox },
-	ClearTaggedCharacters: (self: Hitbox) -> (),
-	GetParts: (self: Hitbox) -> { Model | BasePart },
+	-- Instance Methods
 	Start: (self: Hitbox) -> (),
 	Stop: (self: Hitbox) -> (),
-	SetCFrame: (self: Hitbox, Cframe: CFrame) -> (),
 	Destroy: (self: Hitbox) -> (),
-	WeldTo: (self: Hitbox, PartToWeldTo: BasePart, OffsetCFrame: CFrame?) -> (),
+	GetParts: (self: Hitbox) -> { Model | BasePart },
+	SetCFrame: (self: Hitbox, cframe: CFrame) -> (),
+	WeldTo: (self: Hitbox, part: BasePart, offset: CFrame?) -> (),
 	Unweld: (self: Hitbox) -> (),
-	SetWeldOffset: (self: Hitbox, OffsetCFrame: CFrame) -> (),
-	EnableVelocityPrediction: (self: Hitbox, state: boolean) -> (),
-	EnableDebug: (self: Hitbox, state: boolean) -> (),
-	-- Private Methods (Don't touch unless you know what you're doing!)
+	SetWeldOffset: (self: Hitbox, offset: CFrame) -> (),
+	LinkToInstance: (self: Hitbox, instance: Instance) -> (),
+	ClearTaggedCharacters: (self: Hitbox) -> (),
+	ClearTaggedObjects: (self: Hitbox) -> (),
+	EnableDebug: (self: Hitbox, enabled: boolean) -> (),
+	EnableVelocityPrediction: (self: Hitbox, enabled: boolean) -> (),
 
-	_SiftThroughSendingCharsAndFire: (self: Hitbox) -> (),
-	_SiftThroughSendingObjectsAndFire: (self: Hitbox) -> (),
+	-- Static Methods
+	ClearHitboxesByID: (id: string | number) -> (),
+	GetHitboxCache: () -> { Hitbox },
+
+	-- Private
+	_ProcessTargets: (self: Hitbox, results: { BasePart }) -> (),
+	_ProcessMagnitude: (self: Hitbox) -> (),
+	_FireEvents: (self: Hitbox) -> (),
 	_GeneratePart: (self: Hitbox) -> (),
-	-- Private Fields (Don't touch unless you know what you're doing!)
-	Timer: TimerType?,
+	_GetSpatialResults: (self: Hitbox) -> { BasePart },
+	_CheckDotProduct: (self: Hitbox, targetPosition: Vector3) -> boolean,
 }
 
 return Types
