@@ -126,6 +126,7 @@ function Hitbox.new(params: Types.HitboxParams): Types.Hitbox
 	self.TaggedObjects = {}
 	self.SendingChars = {}
 	self.SendingObjects = {}
+	self["Destroy"] = self.Destroy
 
 	-- Parse size/shape (support legacy SizeOrPart and new Size/Part)
 	local sizeOrPart = params.Size or params.Part or params.SizeOrPart
@@ -408,7 +409,9 @@ function Hitbox:_FireEvents()
 			-- Schedule debounce reset
 			if self.DebounceTime > 0 then
 				task.delay(self.DebounceTime, function()
-					self.TaggedChars[character] = nil
+					if self.TaggedChars and self.TaggedChars[character] then
+						self.TaggedChars[character] = nil
+					end
 				end)
 			end
 		end
@@ -457,15 +460,120 @@ end
 function Hitbox:_ProcessMagnitude()
 	local radius = self.Size :: number
 	local position = self.CFrame.Position
+	local Players = game:GetService("Players")
 
-	-- Scan all models in workspace with humanoids
-	for _, descendant in workspace:GetDescendants() do
-		if not descendant:IsA("Humanoid") then
-			continue
+	if self.LookingFor ~= Constants.LOOKING_FOR.HUMANOID then
+		-- If using tag filtering, use CollectionService
+		if self.Tag then
+			for _, object in CollectionService:GetTagged(self.Tag) do
+				if not object:IsA("BasePart") or not object.Parent then
+					continue
+				end
+
+				local distance = (position - object.Position).Magnitude
+				if distance > radius then
+					continue
+				end
+
+				-- Blacklist check
+				if self.Blacklist then
+					local blacklisted = false
+					for _, item in self.Blacklist do
+						if object == item or object:IsDescendantOf(item :: Instance) then
+							blacklisted = true
+							break
+						end
+					end
+
+					if blacklisted then
+						continue
+					end
+				end
+
+				if self.TaggedObjects[object] or table.find(self.SendingObjects, object) then
+					continue
+				end
+
+				table.insert(self.SendingObjects, object)
+			end
+		else
+			-- Check all parts in workspace (direct children for performance)
+			for _, instance in workspace:GetChildren() do
+				if not instance:IsA("BasePart") then
+					continue
+				end
+
+				local distance = (position - instance.Position).Magnitude
+				if distance > radius then
+					continue
+				end
+
+				-- Blacklist check
+				if self.Blacklist then
+					local blacklisted = false
+					for _, item in self.Blacklist do
+						if instance == item or instance:IsDescendantOf(item :: Instance) then
+							blacklisted = true
+							break
+						end
+					end
+					if blacklisted then
+						continue
+					end
+				end
+
+				if self.TaggedObjects[instance] or table.find(self.SendingObjects, instance) then
+					continue
+				end
+
+				table.insert(self.SendingObjects, instance)
+			end
 		end
 
-		local character = descendant.Parent
-		if not character or not character:IsA("Model") then
+		return
+	end
+
+	-- Humanoid detection mode
+	-- If using tag filtering, use CollectionService
+	if self.Tag then
+		for _, instance in CollectionService:GetTagged(self.Tag) do
+			local character = if instance:IsA("Model") then instance else instance.Parent
+			if not character or not character:IsA("Model") then
+				continue
+			end
+
+			if not character:FindFirstChildOfClass("Humanoid") then
+				continue
+			end
+
+			local pivot = character:GetPivot()
+			local distance = (position - pivot.Position).Magnitude
+
+			if distance > radius then
+				continue
+			end
+
+			if self.Blacklist and table.find(self.Blacklist, character) then
+				continue
+			end
+
+			if not self:_CheckDotProduct(pivot.Position) then
+				continue
+			end
+
+			if self.TaggedChars[character] or table.find(self.SendingChars, character) then
+				continue
+			end
+
+			table.insert(self.SendingChars, character)
+		end
+		return
+	end
+
+	-- Check player characters
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		if not character or not character:FindFirstChildOfClass("Humanoid") then
 			continue
 		end
 
@@ -476,17 +584,10 @@ function Hitbox:_ProcessMagnitude()
 			continue
 		end
 
-		-- Tag filtering
-		if self.Tag and not CollectionService:HasTag(character, self.Tag) then
-			continue
-		end
-
-		-- Blacklist
 		if self.Blacklist and table.find(self.Blacklist, character) then
 			continue
 		end
 
-		-- Dot product
 		if not self:_CheckDotProduct(pivot.Position) then
 			continue
 		end
@@ -496,6 +597,45 @@ function Hitbox:_ProcessMagnitude()
 		end
 
 		table.insert(self.SendingChars, character)
+	end
+
+	-- Check NPCs in workspace (only direct children for performance)
+	for _, instance in workspace:GetChildren() do
+		if not instance:IsA("Model") then
+			continue
+		end
+
+		local humanoid = instance:FindFirstChildOfClass("Humanoid")
+		if not humanoid then
+			continue
+		end
+
+		-- Skip if it's a player character (already checked)
+		local player = Players:GetPlayerFromCharacter(instance)
+		if player then
+			continue
+		end
+
+		local pivot = instance:GetPivot()
+		local distance = (position - pivot.Position).Magnitude
+
+		if distance > radius then
+			continue
+		end
+
+		if self.Blacklist and table.find(self.Blacklist, instance) then
+			continue
+		end
+
+		if not self:_CheckDotProduct(pivot.Position) then
+			continue
+		end
+
+		if self.TaggedChars[instance] or table.find(self.SendingChars, instance) then
+			continue
+		end
+
+		table.insert(self.SendingChars, instance)
 	end
 end
 
@@ -575,11 +715,15 @@ end
 function Hitbox:Start()
 	-- Handle lifetime auto-destroy
 	if self.Lifetime > 0 then
-		self._lifetimeThread = task.delay(self.Lifetime, function()
-			if not self._destroyed then
-				self:Destroy()
-			end
-		end)
+		self._lifetimeThread = self._janitor:Add(
+			task.delay(self.Lifetime, function()
+				if not self._destroyed then
+					self:Destroy()
+				end
+			end),
+			nil,
+			"lifetimeThread"
+		)
 	end
 
 	if self.Part and self.DebugMode then
@@ -606,10 +750,7 @@ end
 	Stops the hitbox detection without destroying it.
 ]]
 function Hitbox:Stop()
-	if self._lifetimeThread then
-		task.cancel(self._lifetimeThread)
-		self._lifetimeThread = nil
-	end
+	self._janitor:Remove("lifetimeThread")
 
 	if self.RunServiceConnection then
 		self.RunServiceConnection:Disconnect()
@@ -758,17 +899,13 @@ function Hitbox:Destroy()
 		table.remove(HitboxCache, index)
 	end
 
-	if self._lifetimeThread then
-		task.cancel(self._lifetimeThread)
-		self._lifetimeThread = nil
-	end
-
 	if self._janitor and not self._janitor.CurrentlyCleaning then
 		self._janitor:Destroy()
 	end
 
 	table.clear(self)
 	setmetatable(self :: any, nil)
+	self = nil
 end
 
 return Hitbox
