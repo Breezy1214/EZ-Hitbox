@@ -1,126 +1,71 @@
 --!strict
+--[[
+	Quick Start:
+		local Hitbox = require(path.to.Hitbox)
+		
+		-- Sphere hitbox (simplest)
+		local hit = Hitbox.sphere(10, character.HumanoidRootPart.CFrame)
+		hit.OnHit:Connect(function(characters) ... end)
+		hit:Start()
+		
+		-- Box hitbox
+		local hit = Hitbox.box(Vector3.new(10, 5, 10), CFrame.new(0, 5, 0))
+		
+		-- Full constructor (all params optional except size)
+		local hit = Hitbox.new({
+			Size = Vector3.new(10, 10, 10),
+			CFrame = CFrame.new(0, 5, 0),
+			DebounceTime = 0.5,
+			Lifetime = 5,
+			Debug = true,
+		})
+]]
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Constants = require(script.Constants)
-
-local moduleSettings = ReplicatedStorage:FindFirstChild(Constants.SETTINGS_FOLDER_NAME)
-
-local function debugLog(...)
-	local debug = moduleSettings:FindFirstChild("Debug")
-	local notEnabled = debug and debug.Value == false
-
-	if notEnabled then
-		return
-	end
-
-	if Constants.DebugLog then
-		warn("[EZ-Hitbox Debug]: ", ...)
-	end
-end
-
--- Module setup and configuration
-if not moduleSettings then
-	moduleSettings = Instance.new("Folder")
-	moduleSettings.Name = Constants.SETTINGS_FOLDER_NAME
-	moduleSettings.Parent = ReplicatedStorage
-	debugLog(
-		"Hitbox settings folder not found! A new one has been created in ReplicatedStorage.",
-		"Instance found at:",
-		moduleSettings
-	)
-end
-
-local aliveObject = moduleSettings:FindFirstChild(Constants.ALIVE_FOLDER_SETTING_NAME)
-local aliveFolder = aliveObject and aliveObject.Value or workspace:FindFirstChild(Constants.ALIVE_FOLDER_SETTING_NAME)
-if not aliveFolder then
-	aliveFolder = Instance.new("Folder")
-	aliveFolder.Name = Constants.ALIVE_FOLDER_SETTING_NAME
-	aliveFolder.Parent = workspace
-	debugLog(
-		"Alive Folder setting not found! A new folder has been created in workspace.",
-		"Instance found at:",
-		aliveFolder
-	)
-	if Constants.DebugLog then
-		print("")
-	end
-	debugLog("Please ensure to populate this folder with the characters/models you want the Hitbox module to detect.")
-end
-
-local ignoreObject = moduleSettings:FindFirstChild(Constants.IGNORE_FOLDER_SETTING_NAME)
-local ignoreFolder = ignoreObject and ignoreObject.Value
-	or workspace:FindFirstChild(Constants.IGNORE_FOLDER_SETTING_NAME)
-if not ignoreFolder then
-	ignoreFolder = Instance.new("Folder")
-	ignoreFolder.Name = Constants.IGNORE_FOLDER_SETTING_NAME
-	ignoreFolder.Parent = workspace
-	debugLog(
-		"Ignore Folder setting not found! A new folder has been created in workspace.",
-		"Instance found at:",
-		ignoreFolder
-	)
-end
-
--- Get velocity constant setting
-local velocityConstant = moduleSettings:FindFirstChild(Constants.VELOCITY_CONSTANT_SETTING_NAME)
-
-if not velocityConstant then
-	debugLog("Velocity Constant Setting does not exist! 6 will be used as a default.")
-end
-
-assert(aliveFolder:IsDescendantOf(workspace), "[EZ-Hitbox Debug] The alive folder must be a descendant of workspace!")
-assert(ignoreFolder:IsDescendantOf(workspace), "[EZ-Hitbox Debug] The Ignore folder must be a descendant of workspace!")
-
--- now we initialize the class
-local Types = require(script.Types)
-local Packages = script.Parent
-local Signal = require(Packages.Signal)
-local Timer = require(Packages.Timer)
-local Janitor = require(Packages.Janitor)
-
-local overlapParamsHumanoid = OverlapParams.new()
-overlapParamsHumanoid.FilterDescendantsInstances = { aliveFolder }
-overlapParamsHumanoid.FilterType = Enum.RaycastFilterType.Include
-
-local overlapParamsObject = OverlapParams.new()
-overlapParamsObject.FilterDescendantsInstances = { ignoreFolder }
-overlapParamsObject.FilterType = Enum.RaycastFilterType.Exclude
-
-local CFrameZero = CFrame.new(Vector3.zero)
-
+local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 
-local function GetHitPointData(hitboxCFrame: CFrame, targetPart: BasePart): Types.HitPointData?
-	local rayOrigin = hitboxCFrame.Position
-	local rayDirection
+local Constants = require(script.Constants)
+local Types = require(script.Types)
 
-	-- Calculate direction from hitbox center to the target part
-	if targetPart.Parent then
-		rayDirection = (targetPart.Position - rayOrigin).Unit * 100 -- Ray distance of 100 studs
-	else
+local Packages = script.Parent
+local Signal = require(Packages.Signal)
+local Janitor = require(Packages.Janitor)
+
+-- Cache
+local HitboxCache: { Types.Hitbox } = {}
+local CFrameZero = CFrame.identity
+
+-- Overlap params
+local defaultOverlapParams = OverlapParams.new()
+defaultOverlapParams.FilterType = Enum.RaycastFilterType.Exclude
+defaultOverlapParams.FilterDescendantsInstances = {}
+
+--[[ Helper Functions ]]
+
+local function GetHitPointData(hitboxCFrame: CFrame, targetPart: BasePart): Types.HitPointData?
+	if not targetPart.Parent then
 		return nil
 	end
+
+	local rayOrigin = hitboxCFrame.Position
+	local rayDirection = (targetPart.Position - rayOrigin).Unit * 100
 
 	local raycastParams = RaycastParams.new()
 	raycastParams.FilterType = Enum.RaycastFilterType.Include
 	raycastParams.FilterDescendantsInstances = { targetPart }
 
-	local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-
-	if raycastResult then
-		local hitData: Types.HitPointData = {
+	local result = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+	if result then
+		return {
 			Object = targetPart,
-			Position = raycastResult.Position,
-			Normal = raycastResult.Normal,
-			Material = raycastResult.Material,
+			Position = result.Position,
+			Normal = result.Normal,
+			Material = result.Material,
 		}
-		return hitData
 	end
-
 	return nil
 end
 
--- Helper function to get hit point data for character
 local function GetCharacterHitPointData(hitboxCFrame: CFrame, character: Model): Types.HitPointData?
 	local pivot = character:GetPivot()
 	local rayOrigin = hitboxCFrame.Position
@@ -130,130 +75,190 @@ local function GetCharacterHitPointData(hitboxCFrame: CFrame, character: Model):
 	raycastParams.FilterType = Enum.RaycastFilterType.Include
 	raycastParams.FilterDescendantsInstances = { character }
 
-	local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-
-	if raycastResult then
-		local hitData: Types.HitPointData = {
+	local result = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+	if result then
+		return {
 			Object = character,
-			Position = raycastResult.Position,
-			Normal = raycastResult.Normal,
-			Material = raycastResult.Material,
+			Position = result.Position,
+			Normal = result.Normal,
+			Material = result.Material,
 		}
-		return hitData
 	end
-
 	return nil
 end
 
+local function GetVectorFromType(cframe: CFrame, vectorType: string?): Vector3
+	if vectorType == "UpVector" then
+		return cframe.UpVector
+	elseif vectorType == "RightVector" then
+		return cframe.RightVector
+	end
+	return cframe.LookVector
+end
+
+--[[ Hitbox Class ]]
+
 local Hitbox = {} :: Types.Hitbox
 Hitbox.__index = Hitbox
-local HitboxCache = {} :: { Types.Hitbox }
 
-function Hitbox.new(HitboxParams: Types.HitboxParams)
-	local self = (setmetatable({}, Hitbox) :: unknown) :: Types.Hitbox
+--[[
+	Creates a new hitbox with the given parameters.
+	
+	@param params HitboxParams - Configuration table
+	@return Hitbox - The created hitbox instance
+	
+	Example:
+		local hitbox = Hitbox.new({
+			Size = Vector3.new(10, 10, 10),
+			CFrame = CFrame.new(0, 5, 0),
+			LookingFor = "Humanoid",
+			DebounceTime = 0.5,
+			Debug = true,
+		})
+]]
+function Hitbox.new(params: Types.HitboxParams): Types.Hitbox
+	local self = setmetatable({}, Hitbox) :: any
 
 	self._janitor = Janitor.new()
-
-	self._janitor:Add(function()
-		self:Destroy()
-	end)
+	self._destroyed = false
 
 	self.TaggedChars = {}
 	self.TaggedObjects = {}
 	self.SendingChars = {}
 	self.SendingObjects = {}
 
-	if RunService:IsClient() and HitboxParams._Tick then
-		self.TickVal = HitboxParams._Tick
+	-- Parse size/shape (support legacy SizeOrPart and new Size/Part)
+	local sizeOrPart = params.Size or params.Part or params.SizeOrPart
+	assert(sizeOrPart, "[EZ-Hitbox] Must provide Size, Part, or SizeOrPart!")
+
+	if typeof(sizeOrPart) == "Vector3" then
+		self.Size = sizeOrPart
+		self.SpatialOption = params.SpatialOption or Constants.SPATIAL_OPTION.IN_BOX
+	elseif typeof(sizeOrPart) == "number" then
+		self.Size = sizeOrPart
+		-- Number can be radius (InRadius) or magnitude
+		if
+			params.SpatialOption == Constants.SPATIAL_OPTION.IN_BOX
+			or params.SpatialOption == Constants.SPATIAL_OPTION.IN_PART
+		then
+			self.Size = Vector3.new(sizeOrPart, sizeOrPart, sizeOrPart)
+			self.SpatialOption = params.SpatialOption
+		elseif params.SpatialOption == Constants.SPATIAL_OPTION.MAGNITUDE then
+			self.SpatialOption = Constants.SPATIAL_OPTION.MAGNITUDE
+		else
+			self.SpatialOption = Constants.SPATIAL_OPTION.IN_RADIUS
+		end
+	elseif typeof(sizeOrPart) == "Instance" and sizeOrPart:IsA("BasePart") then
+		self.Part = self._janitor:Add(sizeOrPart:Clone())
+		self.Size = self.Part.Size
+		self.SpatialOption = Constants.SPATIAL_OPTION.IN_PART
+		self.Part.Color = Constants.DEBUG_PART.COLOR
+		self.Part.CanCollide = false
+		self.Part.Anchored = true
 	else
-		self.TickVal = workspace:GetServerTimeNow()
+		error("[EZ-Hitbox] Invalid Size/Part type: " .. typeof(sizeOrPart))
 	end
 
-	if HitboxParams.ID then
-		self.ID = HitboxParams.ID
+	-- Generate part for InPart spatial option if needed
+	if self.SpatialOption == Constants.SPATIAL_OPTION.IN_PART and not self.Part then
+		self:_GeneratePart()
 	end
 
-	self.Blacklist = HitboxParams.Blacklist
+	-- Core settings with defaults
+	self.CFrame = params.CFrame or params.InitialCframe or CFrameZero
+	self.LookingFor = params.LookingFor or Constants.DEFAULT_LOOKING_FOR
+	self.DebounceTime = params.DebounceTime or Constants.DEFAULT_DEBOUNCE_TIME
+	self.Lifetime = params.Lifetime or params.LifeTime or Constants.DEFAULT_LIFETIME
+	self.DebugMode = params.Debug or Constants.DEFAULT_DEBUG_MODE
+	self.DetectHitPoints = params.DetectHitPoints or false
+	self.VelocityPrediction = if params.VelocityPrediction ~= nil
+		then params.VelocityPrediction
+		else Constants.DEFAULT_VELOCITY_PREDICTION
+	self.VelocityConstant = params.VelocityConstant or Constants.DEFAULT_VELOCITY_CONSTANT
 
+	-- Optional features
+	self.Blacklist = params.Blacklist
+	self.Tag = params.Tag
+	self.ID = params.ID
+	self.DotProductRequirement = params.DotProductRequirement
+
+	-- Create signals
 	self.OnHit = self._janitor:Add(Signal.new())
 	self.HitObject = self._janitor:Add(Signal.new())
 	self.OnHitWithPoint = self._janitor:Add(Signal.new())
 	self.HitObjectWithPoint = self._janitor:Add(Signal.new())
 
-	self.DebugMode = HitboxParams.Debug or Constants.DEFAULT_DEBUG_MODE
-	self.DetectHitPoints = HitboxParams.DetectHitPoints or false
-
-	self.Lifetime = HitboxParams.LifeTime or Constants.DEFAULT_LIFETIME
-
-	self.LookingFor = HitboxParams.LookingFor or Constants.LOOKING_FOR.HUMANOID
-
-	self.CFrame = HitboxParams.InitialCframe or CFrameZero
-	self.DebounceTime = HitboxParams.DebounceTime or Constants.DEFAULT_DEBOUNCE_TIME
-	self.VelocityPrediction = HitboxParams.VelocityPrediction
-
-	if self.VelocityPrediction == nil then
-		self.VelocityPrediction = Constants.DEFAULT_VELOCITY_PREDICTION
-	end
-
-	self.DotProductRequirement = HitboxParams.DotProductRequirement
-
-	self.DebugMode = HitboxParams.Debug or false
-
-	if typeof(HitboxParams.SizeOrPart) == "Vector3" then
-		self.SpatialOption = HitboxParams.SpatialOption or Constants.SPATIAL_OPTION.IN_BOX
-
-		assert(
-			self.SpatialOption ~= Constants.SPATIAL_OPTION.IN_RADIUS,
-			"[EZ-Hitbox] You can't use InRadius as the SpatialOption if a Vector3 is passed! Only InPart and InBox!"
-		)
-
-		self.Mode = Constants.HITBOX_MODE.PART
-		self.Size = HitboxParams.SizeOrPart
-
-		if self.SpatialOption == Constants.SPATIAL_OPTION.IN_PART then
-			self:_GeneratePart()
-		end
-	elseif type(HitboxParams.SizeOrPart) == "number" then
-		self.SpatialOption = HitboxParams.SpatialOption or Constants.SPATIAL_OPTION.MAGNITUDE
-
-		if self.SpatialOption == Constants.SPATIAL_OPTION.IN_RADIUS then
-			self.Mode = Constants.HITBOX_MODE.PART
-			self.Size = HitboxParams.SizeOrPart
-		elseif self.SpatialOption == Constants.SPATIAL_OPTION.IN_PART then
-			self.Mode = Constants.HITBOX_MODE.PART
-			self.Size = Vector3.new(HitboxParams.SizeOrPart, HitboxParams.SizeOrPart, HitboxParams.SizeOrPart)
-			self:_GeneratePart()
-		elseif self.SpatialOption == Constants.SPATIAL_OPTION.IN_BOX then
-			self.Mode = Constants.HITBOX_MODE.PART
-			self.Size = Vector3.new(HitboxParams.SizeOrPart, HitboxParams.SizeOrPart, HitboxParams.SizeOrPart)
-		else
-			self.Mode = Constants.HITBOX_MODE.MAGNITUDE
-			self.Size = HitboxParams.SizeOrPart
-		end
-	else
-		self.Mode = Constants.HITBOX_MODE.PART
-		self.Size = HitboxParams.SizeOrPart.Size
-		self.Part = self._janitor:Add(HitboxParams.SizeOrPart:Clone())
-
-		self.SpatialOption = Constants.SPATIAL_OPTION.IN_PART
-
-		assert(self.Part, "No part provided?")
-
-		assert(self.Part and self.Part:IsA("Part"), "[EZ-Hitbox] Part provided wasn't a part!")
-
-		self.Part.Color = Constants.DEBUG_PART.COLOR
-		self.Part.Name = "Hitbox" .. self.TickVal
-	end
-
+	-- Enable debug visualization
 	if self.DebugMode then
 		self:EnableDebug(true)
 	end
 
 	table.insert(HitboxCache, self)
-	self["Destroy"] = self.Destroy
 
-	return self, true
+	-- Auto-start if requested
+	if params.AutoStart then
+		self:Start()
+	end
+
+	return self
 end
+
+--[[
+	Creates a sphere-shaped hitbox.
+	
+	@param radius number - The radius of the sphere
+	@param cframe CFrame? - Position (optional, defaults to origin)
+	@param params HitboxParams? - Additional parameters (optional)
+	@return Hitbox
+	
+	Example:
+		local hitbox = Hitbox.sphere(10, character.HumanoidRootPart.CFrame)
+]]
+function Hitbox.sphere(radius: number, cframe: CFrame?, params: Types.HitboxParams?): Types.Hitbox
+	local p = params or {} :: Types.HitboxParams
+	p.Size = radius
+	p.CFrame = cframe or p.CFrame
+	p.SpatialOption = Constants.SPATIAL_OPTION.IN_RADIUS
+	return Hitbox.new(p)
+end
+
+--[[
+	Creates a box-shaped hitbox.
+	
+	@param size Vector3 - The size of the box
+	@param cframe CFrame? - Position (optional, defaults to origin)
+	@param params HitboxParams? - Additional parameters (optional)
+	@return Hitbox
+	
+	Example:
+		local hitbox = Hitbox.box(Vector3.new(10, 5, 10), CFrame.new(0, 5, 0))
+]]
+function Hitbox.box(size: Vector3, cframe: CFrame?, params: Types.HitboxParams?): Types.Hitbox
+	local p = params or {} :: Types.HitboxParams
+	p.Size = size
+	p.CFrame = cframe or p.CFrame
+	p.SpatialOption = Constants.SPATIAL_OPTION.IN_BOX
+	return Hitbox.new(p)
+end
+
+--[[
+	Creates a hitbox from an existing part's shape.
+	
+	@param part BasePart - The part to use as the hitbox shape
+	@param params HitboxParams? - Additional parameters (optional)
+	@return Hitbox
+	
+	Example:
+		local hitbox = Hitbox.fromPart(workspace.SwordHitbox)
+]]
+function Hitbox.fromPart(part: BasePart, params: Types.HitboxParams?): Types.Hitbox
+	local p = params or {} :: Types.HitboxParams
+	p.Part = part
+	p.CFrame = p.CFrame or part.CFrame
+	return Hitbox.new(p)
+end
+
+--[[ Instance Methods ]]
 
 function Hitbox:LinkToInstance(instance: Instance)
 	assert(instance, "[EZ-Hitbox] No instance provided to link to!")
@@ -264,358 +269,385 @@ function Hitbox:ClearTaggedCharacters()
 	table.clear(self.TaggedChars)
 end
 
--- This method returns what's currently inside the hitbox without using events
--- Returns either characters (Models) or objects (BaseParts) depending on LookingFor setting
-function Hitbox:GetParts()
-	local foundItems: { Model | BasePart } = {}
+function Hitbox:ClearTaggedObjects()
+	table.clear(self.TaggedObjects)
+end
 
-	if self.Mode == Constants.HITBOX_MODE.MAGNITUDE then
-		-- Magnitude-based hitbox detection
-		if typeof(self.Size) ~= "number" then
-			warn("GetParts() called on magnitude hitbox but Size is not a number")
-			return foundItems
+-- Check if target passes dot product requirement
+function Hitbox:_CheckDotProduct(targetPosition: Vector3): boolean
+	local req = self.DotProductRequirement
+	if not req then
+		return true
+	end
+
+	local vectorToTarget = (targetPosition - req.PartForVector.CFrame.Position).Unit
+	local userVector = GetVectorFromType(req.PartForVector.CFrame, req.VectorType)
+
+	if req.Negative then
+		userVector = userVector * -1
+	end
+
+	return vectorToTarget:Dot(userVector) >= req.DotProduct
+end
+
+-- Get spatial query results based on current settings
+function Hitbox:_GetSpatialResults(): { BasePart }
+	local overlapParams = OverlapParams.new()
+	overlapParams.FilterType = Enum.RaycastFilterType.Exclude
+
+	local exclusions = {}
+	if self.Blacklist then
+		for _, item in self.Blacklist do
+			table.insert(exclusions, item)
+		end
+	end
+
+	if self.Part then
+		table.insert(exclusions, self.Part)
+	end
+
+	overlapParams.FilterDescendantsInstances = exclusions
+
+	if self.SpatialOption == Constants.SPATIAL_OPTION.IN_BOX then
+		return workspace:GetPartBoundsInBox(self.CFrame, self.Size :: Vector3, overlapParams)
+	elseif self.SpatialOption == Constants.SPATIAL_OPTION.IN_RADIUS then
+		return workspace:GetPartBoundsInRadius(self.CFrame.Position, self.Size :: number, overlapParams)
+	elseif self.SpatialOption == Constants.SPATIAL_OPTION.IN_PART and self.Part then
+		return workspace:GetPartsInPart(self.Part, overlapParams)
+	end
+
+	return {}
+end
+
+-- Process detected parts into characters or objects
+function Hitbox:_ProcessTargets(results: { BasePart })
+	for _, part in results do
+		if not part.Parent then
+			continue
 		end
 
-		for _, Character: Instance in pairs(aliveFolder:GetChildren()) do
-			if Character:IsA("Model") and Character:FindFirstChildOfClass("Humanoid") then
-				local pivot = Character:GetPivot()
-				local magnitude = (self.CFrame.Position - pivot.Position).Magnitude
+		if self.LookingFor == Constants.LOOKING_FOR.HUMANOID then
+			local character = part.Parent
+			if not character:IsA("Model") then
+				continue
+			end
 
-				if magnitude <= self.Size then
-					if self.Blacklist and table.find(self.Blacklist, Character) then
-						continue
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if not humanoid then
+				continue
+			end
+
+			-- Tag filtering (if specified)
+			if self.Tag and not CollectionService:HasTag(character, self.Tag) then
+				continue
+			end
+
+			-- Blacklist check
+			if self.Blacklist and table.find(self.Blacklist, character) then
+				continue
+			end
+
+			-- Dot product check
+			if not self:_CheckDotProduct(character:GetPivot().Position) then
+				continue
+			end
+
+			-- Skip if already tagged or in sending queue
+			if self.TaggedChars[character] or table.find(self.SendingChars, character) then
+				continue
+			end
+
+			table.insert(self.SendingChars, character)
+		else
+			-- Object mode
+			if self.Tag and not CollectionService:HasTag(part, self.Tag) then
+				continue
+			end
+
+			-- Blacklist check (also check if descendant of blacklisted)
+			if self.Blacklist then
+				local blacklisted = false
+				for _, item in self.Blacklist do
+					if part == item or part:IsDescendantOf(item :: Instance) then
+						blacklisted = true
+						break
 					end
-
-					-- Check dot product if required
-					if self.DotProductRequirement then
-						local VectorToCompare = (
-							pivot.Position - self.DotProductRequirement.PartForVector.CFrame.Position
-						).Unit
-
-						local VectorOfUser: Vector3
-
-						if self.DotProductRequirement.VectorType then
-							if self.DotProductRequirement.VectorType == "LookVector" then
-								VectorOfUser = self.DotProductRequirement.PartForVector.CFrame.LookVector
-							elseif self.DotProductRequirement.VectorType == "UpVector" then
-								VectorOfUser = self.DotProductRequirement.PartForVector.CFrame.UpVector
-							elseif self.DotProductRequirement.VectorType == "RightVector" then
-								VectorOfUser = self.DotProductRequirement.PartForVector.CFrame.RightVector
-							end
-						else
-							VectorOfUser = self.DotProductRequirement.PartForVector.CFrame.LookVector
-						end
-
-						if self.DotProductRequirement.Negative then
-							VectorOfUser *= -1
-						end
-
-						if VectorToCompare:Dot(VectorOfUser) < self.DotProductRequirement.DotProduct then
-							continue
-						end
-					end
-
-					table.insert(foundItems, Character)
+				end
+				if blacklisted then
+					continue
 				end
 			end
+
+			if self.TaggedObjects[part] or table.find(self.SendingObjects, part) then
+				continue
+			end
+
+			table.insert(self.SendingObjects, part)
 		end
+	end
+end
+
+-- Fire events for accumulated targets
+function Hitbox:_FireEvents()
+	-- Handle characters
+	if #self.SendingChars > 0 then
+		local characters = {}
+		local hitPointData = {}
+
+		for _, character in self.SendingChars do
+			table.insert(characters, character)
+			self.TaggedChars[character] = true
+
+			if self.DetectHitPoints then
+				local data = GetCharacterHitPointData(self.CFrame, character)
+				if data then
+					table.insert(hitPointData, data)
+				end
+			end
+
+			-- Schedule debounce reset
+			if self.DebounceTime > 0 then
+				task.delay(self.DebounceTime, function()
+					self.TaggedChars[character] = nil
+				end)
+			end
+		end
+
+		self.OnHit:Fire(characters)
+		if self.DetectHitPoints and #hitPointData > 0 then
+			self.OnHitWithPoint:Fire(hitPointData)
+		end
+
+		table.clear(self.SendingChars)
+	end
+
+	-- Handle objects
+	if #self.SendingObjects > 0 then
+		local objects = {}
+		local hitPointData = {}
+
+		for _, object in self.SendingObjects do
+			table.insert(objects, object)
+			self.TaggedObjects[object] = true
+
+			if self.DetectHitPoints then
+				local data = GetHitPointData(self.CFrame, object)
+				if data then
+					table.insert(hitPointData, data)
+				end
+			end
+
+			if self.DebounceTime > 0 then
+				task.delay(self.DebounceTime, function()
+					self.TaggedObjects[object] = nil
+				end)
+			end
+		end
+
+		self.HitObject:Fire(objects)
+		if self.DetectHitPoints and #hitPointData > 0 then
+			self.HitObjectWithPoint:Fire(hitPointData)
+		end
+
+		table.clear(self.SendingObjects)
+	end
+end
+
+-- Magnitude-based detection
+function Hitbox:_ProcessMagnitude()
+	local radius = self.Size :: number
+	local position = self.CFrame.Position
+
+	-- Scan all models in workspace with humanoids
+	for _, descendant in workspace:GetDescendants() do
+		if not descendant:IsA("Humanoid") then
+			continue
+		end
+
+		local character = descendant.Parent
+		if not character or not character:IsA("Model") then
+			continue
+		end
+
+		local pivot = character:GetPivot()
+		local distance = (position - pivot.Position).Magnitude
+
+		if distance > radius then
+			continue
+		end
+
+		-- Tag filtering
+		if self.Tag and not CollectionService:HasTag(character, self.Tag) then
+			continue
+		end
+
+		-- Blacklist
+		if self.Blacklist and table.find(self.Blacklist, character) then
+			continue
+		end
+
+		-- Dot product
+		if not self:_CheckDotProduct(pivot.Position) then
+			continue
+		end
+
+		if self.TaggedChars[character] or table.find(self.SendingChars, character) then
+			continue
+		end
+
+		table.insert(self.SendingChars, character)
+	end
+end
+
+--[[
+	Returns all targets currently inside the hitbox.
+	
+	@return {Model | BasePart} - Array of characters or objects in the hitbox
+]]
+function Hitbox:GetParts(): { Model | BasePart }
+	local found: { Model | BasePart } = {}
+
+	if self.SpatialOption == Constants.SPATIAL_OPTION.MAGNITUDE then
+		self:_ProcessMagnitude()
+		for _, char in self.SendingChars do
+			table.insert(found, char)
+		end
+		table.clear(self.SendingChars)
 	else
-		-- Part-based hitbox detection (InBox, InRadius, InPart)
-		local spatialResults
+		local results = self:_GetSpatialResults()
+		local seen: { [Instance]: boolean } = {}
 
-		if self.SpatialOption == Constants.SPATIAL_OPTION.IN_BOX then
-			if self.LookingFor == Constants.LOOKING_FOR.HUMANOID then
-				spatialResults = workspace:GetPartBoundsInBox(self.CFrame, self.Size, overlapParamsHumanoid)
-			else
-				spatialResults = workspace:GetPartBoundsInBox(self.CFrame, self.Size, overlapParamsObject)
-			end
-		elseif self.SpatialOption == Constants.SPATIAL_OPTION.IN_RADIUS then
-			if self.LookingFor == Constants.LOOKING_FOR.HUMANOID then
-				spatialResults = workspace:GetPartBoundsInRadius(self.CFrame.Position, self.Size, overlapParamsHumanoid)
-			else
-				spatialResults = workspace:GetPartBoundsInRadius(self.CFrame.Position, self.Size, overlapParamsObject)
-			end
-		else -- IN_PART
-			if self.LookingFor == Constants.LOOKING_FOR.HUMANOID then
-				spatialResults = workspace:GetPartsInPart(self.Part, overlapParamsHumanoid)
-			else
-				spatialResults = workspace:GetPartsInPart(self.Part, overlapParamsObject)
-			end
-		end
-
-		for _, part: BasePart in pairs(spatialResults) do
+		for _, part in results do
 			if not part.Parent then
 				continue
 			end
 
 			if self.LookingFor == Constants.LOOKING_FOR.HUMANOID then
 				local character = part.Parent
-
-				if not character:IsA("Model") or not character:FindFirstChildOfClass("Humanoid") then
+				if not character:IsA("Model") or seen[character] then
 					continue
 				end
-
+				if not character:FindFirstChildOfClass("Humanoid") then
+					continue
+				end
+				if self.Tag and not CollectionService:HasTag(character, self.Tag) then
+					continue
+				end
 				if self.Blacklist and table.find(self.Blacklist, character) then
 					continue
 				end
-
-				-- Avoid duplicates
-				if not table.find(foundItems, character) then
-					table.insert(foundItems, character)
+				if not self:_CheckDotProduct(character:GetPivot().Position) then
+					continue
 				end
+				seen[character] = true
+				table.insert(found, character)
 			else
-				local blacklistFound = false
-
+				if seen[part] then
+					continue
+				end
+				if self.Tag and not CollectionService:HasTag(part, self.Tag) then
+					continue
+				end
 				if self.Blacklist then
-					for _, blacklistedItem in pairs(self.Blacklist) do
-						local blacklistedInstance = blacklistedItem :: Instance
-						if part == blacklistedInstance or part:IsDescendantOf(blacklistedInstance) then
-							blacklistFound = true
+					local blacklisted = false
+					for _, item in self.Blacklist do
+						if part == item or part:IsDescendantOf(item :: Instance) then
+							blacklisted = true
 							break
 						end
 					end
+					if blacklisted then
+						continue
+					end
 				end
-
-				if not blacklistFound and not table.find(foundItems, part) then
-					table.insert(foundItems, part)
-				end
+				seen[part] = true
+				table.insert(found, part)
 			end
 		end
 	end
 
-	return foundItems
+	return found
 end
 
+--[[
+	Starts the hitbox
+]]
 function Hitbox:Start()
+	-- Handle lifetime auto-destroy
 	if self.Lifetime > 0 then
-		-- check to see if there's a timer, if there is one, then start it
-		if not self.Timer then
-			self.Timer = Timer.Simple(0.1, function()
-				self.Lifetime -= 0.1
-				if self.Lifetime <= 0 then
-					self:Destroy()
-				end
-			end, true)
-
-			if self._janitor then
-				self._janitor:Add(self.Timer)
+		self._lifetimeThread = task.delay(self.Lifetime, function()
+			if not self._destroyed then
+				self:Destroy()
 			end
+		end)
+	end
+
+	if self.Part and self.DebugMode then
+		self.Part.Parent = workspace
+	end
+
+	self.RunServiceConnection = self._janitor:Add(RunService.Heartbeat:Connect(function()
+		if self.PartWeld then
+			self:SetCFrame(self.PartWeld.CFrame * (self.PartWeldOffset or CFrameZero))
+		end
+
+		if self.SpatialOption == Constants.SPATIAL_OPTION.MAGNITUDE then
+			self:_ProcessMagnitude()
 		else
-			self.Timer:Start()
-		end
-	end
-
-	if self.Mode == Constants.HITBOX_MODE.MAGNITUDE then
-		assert(
-			typeof(self.Size) == "number",
-			"Magnitude hitbox wasn't given a number! Type given: " .. typeof(self.Size)
-		)
-
-		if self.Part and self.DebugMode then
-			self.Part.Parent = ignoreFolder
+			local results = self:_GetSpatialResults()
+			self:_ProcessTargets(results)
 		end
 
-		self.RunServiceConnection = self._janitor:Add(RunService.Heartbeat:Connect(function()
-			if self.PartWeld then
-				self:SetCFrame(self.PartWeld.CFrame * (self.PartWeldOffset or CFrameZero))
-			end
-
-			-- go through the alive folder
-			for _, Character: Instance in pairs(aliveFolder:GetChildren()) do
-				-- check to see if it's a model with a primary part that also has a humanoid
-				if Character:IsA("Model") and Character:FindFirstChildOfClass("Humanoid") then
-					local pivot = Character:GetPivot()
-					local magnitude = (self.CFrame.Position - pivot.Position).Magnitude
-
-					-- if they're greater than the distance of the hitbox, skip them
-					if magnitude > self.Size then
-						continue
-					end
-
-					-- if they're in the blacklist, skip them
-					if self.Blacklist then
-						if table.find(self.Blacklist, Character) then
-							continue
-						end
-					end
-
-					-- check the dot product if one is given
-					if self.DotProductRequirement then
-						local VectorToCompare = (
-							pivot.Position - self.DotProductRequirement.PartForVector.CFrame.Position
-						).Unit
-
-						local VectorOfUser: Vector3
-
-						-- changed to a long if statement block cause strict mode was throwing a hissy fit
-						-- "attempting a dynamic property access on type 'CFrame' is unsafe and may cause exceptions at runtime"
-
-						if self.DotProductRequirement.VectorType then
-							if self.DotProductRequirement.VectorType == "LookVector" then
-								VectorOfUser = self.DotProductRequirement.PartForVector.CFrame.LookVector
-							elseif self.DotProductRequirement.VectorType == "UpVector" then
-								VectorOfUser = self.DotProductRequirement.PartForVector.CFrame.UpVector
-							elseif self.DotProductRequirement.VectorType == "RightVector" then
-								VectorOfUser = self.DotProductRequirement.PartForVector.CFrame.RightVector
-							end
-						else
-							VectorOfUser = self.DotProductRequirement.PartForVector.CFrame.LookVector
-						end
-
-						if self.DotProductRequirement.Negative then
-							VectorOfUser *= -1
-						end
-
-						if VectorToCompare:Dot(VectorOfUser) < self.DotProductRequirement.DotProduct then
-							continue
-						end
-					end
-
-					-- if they've already been tagged, skip them
-					if self.TaggedChars[Character] then
-						continue
-					end
-
-					if magnitude <= self.Size then
-						table.insert(self.SendingChars, Character)
-					end
-				end
-			end
-
-			self:_SiftThroughSendingCharsAndFire()
-		end))
-	else
-		if (self.SpatialOption == "InPart") or (self.Part and self.DebugMode == true) then
-			self.Part.Parent = ignoreFolder
-		end
-		self.RunServiceConnection = self._janitor:Add(RunService.Heartbeat:Connect(function()
-			if self.PartWeld then
-				self:SetCFrame(self.PartWeld.CFrame * (self.PartWeldOffset or CFrameZero))
-			end
-
-			local results
-
-			if self.SpatialOption == "InBox" then
-				if self.LookingFor == "Humanoid" then
-					results = workspace:GetPartBoundsInBox(self.CFrame, self.Size, overlapParamsHumanoid)
-				else
-					results = workspace:GetPartBoundsInBox(self.CFrame, self.Size, overlapParamsObject)
-				end
-			elseif self.SpatialOption == "InRadius" then
-				if self.LookingFor == "Humanoid" then
-					results = workspace:GetPartBoundsInRadius(self.CFrame.Position, self.Size, overlapParamsHumanoid)
-				else
-					results = workspace:GetPartBoundsInRadius(self.CFrame.Position, self.Size, overlapParamsObject)
-				end
-			else
-				if self.LookingFor == "Humanoid" then
-					results = workspace:GetPartsInPart(self.Part, overlapParamsHumanoid)
-				else
-					results = workspace:GetPartsInPart(self.Part, overlapParamsObject)
-				end
-			end
-
-			for _, part: BasePart in pairs(results) do
-				if not part.Parent then
-					continue
-				end
-
-				if self.LookingFor == "Humanoid" then
-					local character = part.Parent
-
-					if not character:IsA("Model") or not character:FindFirstChildOfClass("Humanoid") then
-						continue
-					end
-
-					-- Check blacklist
-					if self.Blacklist and table.find(self.Blacklist, character) then
-						continue
-					end
-
-					-- Check if already processed
-					if not table.find(self.SendingChars, character) and not self.TaggedChars[character] then
-						table.insert(self.SendingChars, character)
-					end
-				else
-					local blacklistFound = false
-
-					if self.Blacklist then
-						-- Check against blacklist with early termination
-						for _, blacklistedItem in pairs(self.Blacklist) do
-							local blacklistedInstance = blacklistedItem :: Instance
-							if part == blacklistedInstance or part:IsDescendantOf(blacklistedInstance) then
-								blacklistFound = true
-								break
-							end
-						end
-					end
-
-					-- Add to sending objects if not blacklisted or already tracked
-					if
-						not blacklistFound
-						and not table.find(self.SendingObjects, part)
-						and not self.TaggedObjects[part]
-					then
-						table.insert(self.SendingObjects, part)
-					end
-				end
-			end
-
-			if self.LookingFor == "Humanoid" then
-				self:_SiftThroughSendingCharsAndFire()
-			elseif self.LookingFor == "Object" then
-				self:_SiftThroughSendingObjectsAndFire()
-			end
-		end))
-	end
+		self:_FireEvents()
+	end))
 end
 
+--[[
+	Stops the hitbox detection without destroying it.
+]]
 function Hitbox:Stop()
-	if self.Timer then
-		self.Timer:Stop()
-	end
-
-	if self.Part then
-		self.Part.Parent = nil
+	if self._lifetimeThread then
+		task.cancel(self._lifetimeThread)
+		self._lifetimeThread = nil
 	end
 
 	if self.RunServiceConnection then
 		self.RunServiceConnection:Disconnect()
 		self.RunServiceConnection = nil
 	end
-end
-
-function Hitbox:SetCFrame(newCframe: CFrame)
-	local constant
-
-	if velocityConstant then
-		constant = velocityConstant.Value or Constants.DEFAULT_VELOCITY_CONSTANT
-	else
-		constant = Constants.DEFAULT_VELOCITY_CONSTANT
-	end
-
-	if RunService:IsServer() and self.PartWeld and self.VelocityPrediction then
-		local velocityVector = newCframe:VectorToObjectSpace(self.PartWeld.AssemblyLinearVelocity) / constant
-		newCframe = newCframe * CFrame.new(velocityVector)
-	end
-
-	self.CFrame = newCframe
 
 	if self.Part then
-		self.Part.CFrame = newCframe
-	elseif self.DebugMode then
-		-- Generate debug part if it doesn't exist but debug mode is enabled
-		self:_GeneratePart()
-		if self.Part then
-			self.Part.CFrame = newCframe
-			self.Part.Parent = ignoreFolder
-		end
+		self.Part.Parent = nil
 	end
 end
 
-function Hitbox:WeldTo(PartToWeldTo: BasePart, OffsetCFrame: CFrame?)
-	self.PartWeld = PartToWeldTo
-	self.PartWeldOffset = OffsetCFrame
+--[[
+	Sets the hitbox position
+	
+	@param newCFrame CFrame - The new position/orientation
+]]
+function Hitbox:SetCFrame(newCFrame: CFrame)
+	if self.VelocityPrediction and self.PartWeld and RunService:IsServer() then
+		local velocity = newCFrame:VectorToObjectSpace(self.PartWeld.AssemblyLinearVelocity)
+		newCFrame = newCFrame * CFrame.new(velocity / self.VelocityConstant)
+	end
+
+	self.CFrame = newCFrame
+
+	if self.Part then
+		self.Part.CFrame = newCFrame
+	end
+end
+
+--[[
+	Welds the hitbox to follow a part.
+	
+	@param part BasePart - The part to follow
+	@param offset CFrame? - Optional offset from the part
+]]
+function Hitbox:WeldTo(part: BasePart, offset: CFrame?)
+	self.PartWeld = part
+	self.PartWeldOffset = offset
 end
 
 function Hitbox:Unweld()
@@ -623,142 +655,38 @@ function Hitbox:Unweld()
 	self.PartWeldOffset = nil
 end
 
-function Hitbox:SetWeldOffset(OffsetCFrame: CFrame)
-	self.PartWeldOffset = OffsetCFrame
+function Hitbox:SetWeldOffset(offset: CFrame)
+	self.PartWeldOffset = offset
 end
 
-function Hitbox:EnableVelocityPrediction(state: boolean)
-	self.VelocityPrediction = state
+function Hitbox:EnableVelocityPrediction(enabled: boolean)
+	self.VelocityPrediction = enabled
 end
 
-function Hitbox:EnableDebug(state: boolean)
-	self.DebugMode = state
+--[[
+	Enables or disables debug visualization.
+	
+	@param enabled boolean - Whether to show the debug part
+]]
+function Hitbox:EnableDebug(enabled: boolean)
+	self.DebugMode = enabled
 
-	if self.DebugMode then
+	if enabled then
 		if not self.Part then
 			self:_GeneratePart()
-			assert(self.Part, "Part wasn't generated after the GeneratePart method?")
 		end
 
 		if self.Part then
 			self.Part.Transparency = Constants.DEBUG_PART.VISIBLE_TRANSPARENCY
-
-			-- Parent the part to ignoreFolder if it's not already parented
-			if not self.Part.Parent then
-				self.Part.Parent = ignoreFolder
-			end
+			self.Part.Parent = workspace
 		end
 	else
 		if self.Part then
+			self.Part.Transparency = Constants.DEBUG_PART.INVISIBLE_TRANSPARENCY
 			if self.SpatialOption ~= Constants.SPATIAL_OPTION.IN_PART then
 				self.Part.Parent = nil
 			end
-
-			self.Part.Transparency = Constants.DEBUG_PART.INVISIBLE_TRANSPARENCY
 		end
-	end
-end
-
-function Hitbox.ClearHitboxesByID(ID: number | string)
-	if RunService:IsClient() then
-		return
-	end
-
-	-- go through the cache and destroy any hitboxes with the ID provided
-	for i = #HitboxCache, 1, -1 do
-		local checkingHitbox = HitboxCache[i]
-
-		if checkingHitbox.ID and checkingHitbox.ID == ID then
-			pcall(function()
-				checkingHitbox:Destroy()
-			end)
-		end
-	end
-end
-
-function Hitbox.GetHitboxCache()
-	return HitboxCache
-end
-
-function Hitbox:_SiftThroughSendingObjectsAndFire()
-	if #self.SendingObjects <= 0 then
-		return
-	end
-
-	local shallowObjectTable = {}
-	local hitPointDataTable = {}
-
-	for _, object in pairs(self.SendingObjects) do
-		table.insert(shallowObjectTable, object)
-		-- Get hit point data if enabled
-		if self.DetectHitPoints then
-			local hitData = GetHitPointData(self.CFrame, object)
-			if hitData then
-				table.insert(hitPointDataTable, hitData)
-			end
-		end
-
-		self.TaggedObjects[object] = true
-
-		if self.DebounceTime > 0 then
-			self._janitor:Add(task.delay(self.DebounceTime, function()
-				self.TaggedObjects[object] = nil
-			end))
-		end
-	end
-
-	if #shallowObjectTable > 0 then
-		self.HitObject:Fire(shallowObjectTable)
-
-		-- Fire hit point signal if we have hit point data
-		if self.DetectHitPoints and #hitPointDataTable > 0 then
-			self.HitObjectWithPoint:Fire(hitPointDataTable)
-		end
-	end
-
-	if self.SendingObjects then
-		table.clear(self.SendingObjects)
-	end
-end
-
-function Hitbox:_SiftThroughSendingCharsAndFire()
-	if #self.SendingChars <= 0 then
-		return
-	end
-
-	local shallowObjectTable = {}
-	local hitPointDataTable = {}
-
-	for _, character: Model in pairs(self.SendingChars) do
-		table.insert(shallowObjectTable, character)
-		-- Get hit point data if enabled
-		if self.DetectHitPoints then
-			local hitData = GetCharacterHitPointData(self.CFrame, character)
-			if hitData then
-				table.insert(hitPointDataTable, hitData)
-			end
-		end
-
-		self.TaggedChars[character] = true
-
-		if self.DebounceTime > 0 then
-			self._janitor:Add(task.delay(self.DebounceTime, function()
-				self.TaggedChars[character] = nil
-			end))
-		end
-	end
-
-	if #shallowObjectTable > 0 then
-		self.OnHit:Fire(shallowObjectTable)
-
-		-- Fire hit point signal if we have hit point data
-		if self.DetectHitPoints and #hitPointDataTable > 0 then
-			self.OnHitWithPoint:Fire(hitPointDataTable)
-		end
-	end
-
-	if self.SendingChars then
-		table.clear(self.SendingChars)
 	end
 end
 
@@ -767,47 +695,57 @@ function Hitbox:_GeneratePart()
 		return
 	end
 
+	local part = Instance.new("Part")
+	part.Name = "Hitbox_Debug"
+	part.Color = Constants.DEBUG_PART.COLOR
+	part.Transparency = if self.DebugMode
+		then Constants.DEBUG_PART.VISIBLE_TRANSPARENCY
+		else Constants.DEBUG_PART.INVISIBLE_TRANSPARENCY
+	part.Anchored = true
+	part.Massless = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CFrame = self.CFrame
+
 	if typeof(self.Size) == "Vector3" then
-		self.Mode = "Part"
-		self.Part = self._janitor:Add(Instance.new("Part"))
+		part.Size = self.Size
+	elseif typeof(self.Size) == "number" then
+		part.Shape = Enum.PartType.Ball
+		part.Size = Vector3.new(self.Size * 2, self.Size * 2, self.Size * 2)
+	end
 
-		assert(self.Part, "Part was nil!")
-		assert(typeof(self.Size) == "Vector3", "self.Size wasn't a vector3 when making a part!") -- you shouldn't get here, but just in case
+	self.Part = self._janitor:Add(part)
+end
 
-		self.Part.Color = Color3.new(1, 0, 0)
+--[[ Static Methods ]]
 
-		if self.DebugMode then
-			self.Part.Transparency = 0.45
-		else
-			self.Part.Transparency = 1
+--[[
+	Destroys all hitboxes with the specified ID.
+	
+	@param id string | number - The ID to match
+]]
+function Hitbox.ClearHitboxesByID(id: string | number)
+	for i = #HitboxCache, 1, -1 do
+		local hitbox = HitboxCache[i]
+		if hitbox.ID == id then
+			hitbox:Destroy()
 		end
-
-		self.Part.Anchored = true
-		self.Part.Massless = true
-		self.Part.CanCollide = false
-
-		self.Part.Size = self.Size
-		self.Part.CFrame = self.CFrame
-
-		self.Part.Name = "Hitbox" .. self.TickVal
-	elseif type(self.Size) == "number" then
-		self.Part = self._janitor:Add(Instance.new("Part"))
-
-		assert(self.Part and self.Part:IsA("Part"), "[EZ-Hitbox] Part provided wasn't a part!")
-		assert(typeof(self.Size) == "number", "[EZ-Hitbox] self.Size wasn't a number when making a sphere part!") -- you shouldn't get here, but just in case
-
-		self.Part.Shape = Enum.PartType.Ball
-		self.Part.Anchored = true
-		self.Part.Massless = true
-		self.Part.CanCollide = false
-		self.Part.Size = Vector3.new(self.Size * 2, self.Size * 2, self.Size * 2)
-		self.Part.Transparency = 0.45
-		self.Part.Color = Color3.new(1, 0, 0)
-		self.Part.CFrame = self.CFrame
-		self.Part.Name = "Hitbox" .. self.TickVal
 	end
 end
 
+--[[
+	Returns the cache of all active hitboxes.
+	
+	@return {Hitbox}
+]]
+function Hitbox.GetHitboxCache(): { Types.Hitbox }
+	return HitboxCache
+end
+
+--[[
+	Destroys the hitbox and cleans up all resources.
+]]
 function Hitbox:Destroy()
 	if self._destroyed then
 		return
@@ -820,14 +758,17 @@ function Hitbox:Destroy()
 		table.remove(HitboxCache, index)
 	end
 
+	if self._lifetimeThread then
+		task.cancel(self._lifetimeThread)
+		self._lifetimeThread = nil
+	end
+
 	if self._janitor and not self._janitor.CurrentlyCleaning then
 		self._janitor:Destroy()
-		self._janitor = nil
 	end
 
 	table.clear(self)
-	setmetatable(self, nil)
-	self = nil
+	setmetatable(self :: any, nil)
 end
 
 return Hitbox
