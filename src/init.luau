@@ -160,11 +160,6 @@ function Hitbox.new(params: Types.HitboxParams): Types.Hitbox
 		error("[EZ-Hitbox] Invalid Size/Part type: " .. typeof(sizeOrPart))
 	end
 
-	-- Generate part for InPart spatial option if needed
-	if self.SpatialOption == Constants.SPATIAL_OPTION.IN_PART and not self.Part then
-		self:_GeneratePart()
-	end
-
 	-- Core settings with defaults
 	self.CFrame = params.CFrame or params.InitialCframe or CFrameZero
 	self.LookingFor = params.LookingFor or Constants.DEFAULT_LOOKING_FOR
@@ -176,6 +171,11 @@ function Hitbox.new(params: Types.HitboxParams): Types.Hitbox
 		then params.VelocityPrediction
 		else Constants.DEFAULT_VELOCITY_PREDICTION
 	self.VelocityConstant = params.VelocityConstant or Constants.DEFAULT_VELOCITY_CONSTANT
+
+	-- Generate part for InPart spatial option if needed
+	if self.SpatialOption == Constants.SPATIAL_OPTION.IN_PART and not self.Part then
+		self:_GeneratePart()
+	end
 
 	-- Optional features
 	self.Blacklist = params.Blacklist
