@@ -408,11 +408,11 @@ function Hitbox:_FireEvents()
 
 			-- Schedule debounce reset
 			if self.DebounceTime > 0 then
-				task.delay(self.DebounceTime, function()
+				self._janitor:Add(task.delay(self.DebounceTime, function()
 					if self.TaggedChars and self.TaggedChars[character] then
 						self.TaggedChars[character] = nil
 					end
-				end)
+				end))
 			end
 		end
 
@@ -441,9 +441,11 @@ function Hitbox:_FireEvents()
 			end
 
 			if self.DebounceTime > 0 then
-				task.delay(self.DebounceTime, function()
-					self.TaggedObjects[object] = nil
-				end)
+				self._janitor:Add(task.delay(self.DebounceTime, function()
+					if self.TaggedObjects and self.TaggedObjects[object] then
+						self.TaggedObjects[object] = nil
+					end
+				end))
 			end
 		end
 
